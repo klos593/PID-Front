@@ -1,0 +1,4 @@
+# Copy this file into the root of EACH repo (frontend, backend, infra)
+# as ".gitattributes". Normalizes line endings to LF regardless of which
+# OS someone is committing from (Windows defaults to CRLF).
+* text=auto eol=lf
