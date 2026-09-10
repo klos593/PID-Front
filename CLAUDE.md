@@ -8,6 +8,20 @@ Shared context for Claude Code across the team. This file lives at the root of *
 - Three repos, cloned side by side inside a parent `Proyecto/` folder: `PID-Front` (this one), `PID-Back`, `PID-Infra`.
 - Team works across Apple Silicon Macs (M1/M2) and at least one Windows desktop — keep cross-platform tooling in mind (line endings, shell scripts, etc.).
 
+## App concept
+A web app (responsive — must work well on phone too) that connects students and teachers.
+- **Single account type**: role (`teacher` or `student`) is chosen at signup, not separate signup flows.
+- **Teachers**: pick which subjects they teach from a fixed list of available subjects, and set their availability — specific dates and start times. Classes are always **1 hour long**, and can only start on the hour or half-hour (`:00` or `:30`).
+- **Students**: search/browse teachers, view their profile and subjects, see which teachers are available and their open class slots.
+- **Booking**: a student picking a slot **reserves it** — it disappears from availability for other students once booked.
+- **Payments/pricing**: out of scope for this version.
+
+### Frontend implications
+- Mobile-first, responsive layout — test at phone widths, not just desktop.
+- Teacher-side views: subject picker (from the fixed subject list), an availability calendar/scheduler (slots snapped to `:00`/`:30`, 1-hour blocks only).
+- Student-side views: teacher search/browse, teacher profile page (subjects + bio), a slot picker showing only *available* (unbooked) slots, and a booking confirmation flow.
+- Once a slot is booked, the UI for other students needs to reflect it's no longer available (don't rely on stale client state — refetch or use optimistic UI carefully to avoid double-booking races).
+
 ## Tech stack (this repo)
 - React scaffolded with **Vite** (`react` template + ESLint) — NOT Create React App.
 - Local dev: `npm run dev` (Vite doesn't use `npm start` — that trips people up coming from CRA).
