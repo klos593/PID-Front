@@ -9,7 +9,7 @@ import { SpinnerIcon } from '../../../components/icons.jsx'
  */
 class StepSubjects extends Component {
   getQuestion() {
-    return this.props.role === 'docente' ? '¿Qué materias das?' : '¿Qué materias te interesan?'
+    return this.props.role === 'teacher' ? '¿Qué materias das?' : '¿Qué materias te interesan?'
   }
 
   render() {

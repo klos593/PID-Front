@@ -15,6 +15,7 @@ class App extends Component {
   state = {
     view: VIEW_LOGIN,
     justRegisteredName: null,
+    currentUser: null,
   }
 
   handleRegisterComplete = (_result, nombre) => {
@@ -29,13 +30,22 @@ class App extends Component {
     this.setState({ view: VIEW_LOGIN, justRegisteredName: null })
   }
 
-  handleLoginSuccess = () => {
-    // Sin backend de sesión conectado todavía — placeholder para cuando
-    // exista una pantalla posterior a loguearse.
+  handleLoginSuccess = (user) => {
+    this.setState({ currentUser: user })
   }
 
   render() {
-    const { view, justRegisteredName } = this.state
+    const { view, justRegisteredName, currentUser } = this.state
+
+    if (currentUser) {
+      // Todavía no hay una pantalla post-login (dashboard/búsqueda) —
+      // placeholder mínimo hasta que se construya esa vista.
+      return (
+        <div className="auth-page">
+          <p>Sesión iniciada como {currentUser.email} ({currentUser.role}).</p>
+        </div>
+      )
+    }
 
     if (view === VIEW_LOGIN) {
       return (

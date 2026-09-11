@@ -16,15 +16,16 @@ export function isValidPhone(phone) {
 
 export function passwordRules(password) {
   return {
-    minLength: password.length >= 8,
-    hasLetter: /[A-Za-z]/.test(password),
+    minLength: password.length >= 10,
+    hasLower: /[a-z]/.test(password),
+    hasUpper: /[A-Z]/.test(password),
     hasNumber: /\d/.test(password),
   }
 }
 
 export function isValidPassword(password) {
   const rules = passwordRules(password)
-  return rules.minLength && rules.hasLetter && rules.hasNumber
+  return rules.minLength && rules.hasLower && rules.hasUpper && rules.hasNumber
 }
 
 export function isNonEmptyName(value) {
