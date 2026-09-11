@@ -1,4 +1,5 @@
 import { Component } from 'react'
+import { Link, Navigate } from 'react-router-dom'
 import AuthHero from '../../components/AuthHero.jsx'
 import Banner from '../../components/Banner.jsx'
 import FormField from '../../components/FormField.jsx'
@@ -18,6 +19,7 @@ class LoginPage extends Component {
     touched: {},
     submitting: false,
     error: null,
+    done: false,
   }
 
   getEmailError() {
@@ -56,7 +58,10 @@ class LoginPage extends Component {
     this.setState({ submitting: true, error: null })
     loginAccount(this.state.values)
       .then((result) => {
-        this.setState({ submitting: false })
+        // `done` dispara el <Navigate> del render, igual que en RegisterPage.
+        // La redirección vive acá y no en la ruta de App para que /ingresar se
+        // pueda visitar aunque ya haya un usuario cargado.
+        this.setState({ submitting: false, done: true })
         this.props.onSuccess?.(result)
       })
       .catch((error) => {
@@ -68,8 +73,12 @@ class LoginPage extends Component {
   }
 
   render() {
-    const { values, touched, submitting, error } = this.state
-    const { successMessage, onGoToRegister } = this.props
+    const { values, touched, submitting, error, done } = this.state
+    const { successMessage } = this.props
+
+    if (done) {
+      return <Navigate to="/" replace />
+    }
 
     return (
       <div className="auth-page">
@@ -112,9 +121,9 @@ class LoginPage extends Component {
             </form>
             <p className="auth-switch">
               ¿No tenés cuenta?{' '}
-              <button type="button" className="auth-link" onClick={onGoToRegister}>
+              <Link className="auth-link" to="/registro">
                 Registrate
-              </button>
+              </Link>
             </p>
           </div>
         </div>

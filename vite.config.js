@@ -3,17 +3,20 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig({
   plugins: [react()],
-  // `vite build`/`vite dev` already default to the automatic JSX runtime
-  // (via oxc). Vitest's own transform goes through esbuild instead and
-  // needs this set explicitly, or components fail with "React is not
-  // defined" — scoped to `mode === 'test'` so it doesn't clash with oxc
-  // during a normal build.
-  ...(mode === 'test' ? { esbuild: { jsx: 'automatic' } } : {}),
+  server: {
+    proxy: {
+      // client.js pega todo a rutas relativas /api — acá las redirigimos al
+      // backend de Fastify. `backend` es el nombre del servicio en
+      // docker-compose.dev.yml; corriendo `npm run dev` fuera de Docker hay
+      // que apuntar a http://127.0.0.1:4000.
+      '/api': { target: 'http://backend:4000', changeOrigin: true },
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
     setupFiles: './src/setupTests.js',
   },
-}))
+})

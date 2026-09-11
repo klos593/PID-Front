@@ -150,6 +150,39 @@
   margin-top: 1px;
 }
 
+/* Chips de materia — compartidos por el registro (SubjectPicker) y el
+   perfil. Viven acá y no en SubjectPicker.css porque los usan dos pantallas
+   que no se importan entre sí. */
+
+.subject-chip {
+  border: 1.5px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.subject-chip:hover {
+  border-color: var(--color-primary);
+}
+
+.subject-chip.selected {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.subject-chip svg {
+  width: 12px;
+  height: 12px;
+}
+
 /* Estructura compartida por las pantallas de auth (Registro, Login):
    encabezado azul decorativo + tarjeta blanca superpuesta. */
 
@@ -257,6 +290,8 @@
   color: var(--color-text-muted);
 }
 
+/* Sirve tanto para <button> como para el <Link> de react-router (que
+   renderiza un <a>), de ahí el text-decoration: none. */
 .auth-link {
   background: none;
   border: none;
@@ -264,6 +299,7 @@
   color: var(--color-primary);
   font-weight: 600;
   font-size: inherit;
+  text-decoration: none;
   cursor: pointer;
 }
 

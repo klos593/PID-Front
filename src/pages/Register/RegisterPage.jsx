@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { Navigate } from 'react-router-dom'
 import ProgressSteps from '../../components/ProgressSteps.jsx'
 import AuthHero from '../../components/AuthHero.jsx'
 import StepAccount from './steps/StepAccount.jsx'
@@ -44,6 +45,7 @@ class RegisterPage extends Component {
     selectedSubjectIds: [],
     submitting: false,
     submitError: null,
+    done: false,
   }
 
   handleValueChange = (field, value) => {
@@ -149,7 +151,9 @@ class RegisterPage extends Component {
     this.setState({ submitting: true, submitError: null })
     registerAccount(this.buildPayload())
       .then((result) => {
-        this.setState({ submitting: false })
+        // `done` dispara el <Navigate> del render: avisamos para arriba (para
+        // el mensaje de bienvenida) y mandamos al login.
+        this.setState({ submitting: false, done: true })
         this.props.onComplete?.(result, this.state.values.nombre)
       })
       .catch((error) => {
@@ -173,7 +177,6 @@ class RegisterPage extends Component {
           onBlur={this.handleFieldBlur}
           onSubmit={this.handleAccountSubmit}
           onInvalidSubmit={this.handleAccountInvalidSubmit}
-          onGoToLogin={this.props.onGoToLogin}
         />
       )
     }
@@ -205,8 +208,12 @@ class RegisterPage extends Component {
   }
 
   render() {
-    const { step, direction } = this.state
+    const { step, direction, done } = this.state
     const canGoBack = step > STEP_ACCOUNT
+
+    if (done) {
+      return <Navigate to="/ingresar" replace />
+    }
 
     return (
       <div className="auth-page">

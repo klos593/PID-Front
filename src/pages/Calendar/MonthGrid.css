@@ -1,0 +1,224 @@
+/* Incluye los estilos de DayCell: fuera de la grilla no significan nada, así
+   que no les hacemos un archivo propio (misma excepción que AuthHero con
+   ui.css). */
+
+.month-grid {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Alto de cada línea de clase dentro de una celda. CalendarPage lo lee de
+   acá con getComputedStyle para saber cuántas entran, así que el número vive
+   en un solo lado: este. */
+.month-grid-weeks {
+  --day-event-line: 19px;
+
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: repeat(6, 1fr);
+  /* Los "gap" de 1px sobre un fondo del color del borde son las líneas
+     finitas de la grilla: las celdas tapan el resto con su propio fondo. */
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.month-grid-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--color-border);
+  min-height: 0;
+}
+
+.month-grid-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.month-grid-weekday {
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  padding-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.day-cell {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  border: none;
+  background: var(--color-surface-solid);
+  color: var(--color-text);
+  font-size: 13px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 4px 5px;
+  overflow: hidden;
+  transition: background-color 0.15s ease;
+}
+
+.day-cell:hover {
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface-solid));
+}
+
+/* Los días de relleno (del mes anterior o del siguiente) se pueden tocar,
+   pero se ven apagados para que no compitan con el mes que se está viendo. */
+.day-cell.is-outside {
+  background: color-mix(in srgb, var(--color-bg) 60%, var(--color-surface-solid));
+  color: var(--color-text-muted);
+}
+
+.day-cell.is-selected {
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface-solid));
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+.day-cell-number {
+  align-self: flex-end;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Hoy: el número adentro de un círculo lleno, como en el calendario de
+   Apple (el resto de la celda queda legible). */
+.day-cell.is-today .day-cell-number {
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: 50%;
+  font-weight: 700;
+}
+
+/* El contenedor de las clases se queda con todo el alto que sobra, sin
+   importar cuántas haya: eso es lo que hace que medirlo dé el espacio
+   disponible y no el que ya está ocupado. */
+.day-cell-events {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.day-event {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--day-event-line, 19px);
+  flex-shrink: 0;
+  font-size: 11.5px;
+  /* No puede ser 1: con line-height:1 la caja de línea mide exactamente el
+     font-size y las colas de las letras (q y p j g) se salen por abajo. Como
+     .day-event-title necesita overflow:hidden para el "...", esas colas no
+     se desbordan: se cortan. 1.35 da una caja de ~15.5px, que sigue entrando
+     holgada en los 19px fijos de la fila. */
+  line-height: 1.35;
+  padding: 0 2px;
+  border-radius: 4px;
+  min-width: 0;
+}
+
+/* Un solo color: en esta pantalla ya no hay turnos libres, así que el punto
+   no distingue nada — solo marca "acá hay una clase". El verde de
+   --color-success queda libre para la pantalla de disponibilidad. */
+.day-event-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.day-event-time {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.day-event-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.day-event-more {
+  height: var(--day-event-line, 19px);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+/* En pantallas chicas la grilla deja de estirarse para llenar el alto: las
+   filas toman una altura mínima y el scroll lo hace .app-main. */
+@media (max-width: 900px) {
+  .month-grid-weeks {
+    grid-template-rows: repeat(6, minmax(76px, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .month-grid-weeks {
+    /* Acá cada clase es un puntito de 10px que además se acomoda en fila,
+       así que "la altura de una línea" es mucho menor que en escritorio. Si
+       no se ajusta, CalendarPage calcula que entra una sola y casi todo se
+       convierte en un "+N". */
+    --day-event-line: 9px;
+
+    grid-template-rows: repeat(6, minmax(62px, 1fr));
+  }
+
+  .day-cell {
+    padding: 3px;
+    font-size: 12px;
+  }
+
+  /* En un teléfono no entra el texto de cada clase: dejamos solo los
+     puntitos, y el detalle se lee en la lista de abajo. */
+  .day-event-time,
+  .day-event-title {
+    display: none;
+  }
+
+  .day-event {
+    height: 10px;
+    padding: 0;
+    justify-content: flex-start;
+  }
+
+  .day-cell-events {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 3px;
+    padding-top: 2px;
+  }
+
+  .day-event-more {
+    height: 10px;
+    padding-left: 0;
+    font-size: 10px;
+  }
+}

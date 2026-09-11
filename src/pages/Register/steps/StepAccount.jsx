@@ -1,4 +1,5 @@
 import { Component } from 'react'
+import { Link } from 'react-router-dom'
 import FormField from '../../../components/FormField.jsx'
 import PasswordInput from '../../../components/PasswordInput.jsx'
 import {
@@ -81,7 +82,7 @@ class StepAccount extends Component {
   }
 
   render() {
-    const { values, touched, onGoToLogin } = this.props
+    const { values, touched } = this.props
 
     return (
       <form className="step-account" onSubmit={this.handleSubmit} noValidate>
@@ -147,14 +148,12 @@ class StepAccount extends Component {
             Siguiente
           </button>
         </div>
-        {onGoToLogin ? (
-          <p className="auth-switch">
-            ¿Ya tenés cuenta?{' '}
-            <button type="button" className="auth-link" onClick={onGoToLogin}>
-              Iniciá sesión
-            </button>
-          </p>
-        ) : null}
+        <p className="auth-switch">
+          ¿Ya tenés cuenta?{' '}
+          <Link className="auth-link" to="/ingresar">
+            Iniciá sesión
+          </Link>
+        </p>
       </form>
     )
   }

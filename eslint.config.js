@@ -18,4 +18,12 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    // Vitest corre con `globals: true` (ver vite.config.js), así que en los
+    // tests describe/it/expect/vi existen sin importarlos.
+    files: ['**/*.test.{js,jsx}', 'src/setupTests.js'],
+    languageOptions: {
+      globals: globals.vitest,
+    },
+  },
 ])
