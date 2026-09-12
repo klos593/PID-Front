@@ -66,7 +66,13 @@
   align-items: stretch;
   gap: 2px;
   border: none;
-  background: var(--color-surface-solid);
+  /* El fondo va por variable y no directo: así el tinte verde de "hay algo
+     para reservar", el gris de los días de relleno, el hover y el seleccionado
+     se COMPONEN en vez de pelearse. Los cuatro son .day-cell.is-* con la misma
+     especificidad, así que sin esto gana el orden del archivo y se pierde el
+     que quede arriba. */
+  --cell-bg: var(--color-surface-solid);
+  background: var(--cell-bg);
   color: var(--color-text);
   font-size: 13px;
   font-family: inherit;
@@ -77,8 +83,14 @@
   transition: background-color 0.15s ease;
 }
 
+/* Tinte verde apenas perceptible: "acá hay algo para reservar". El color es
+   --color-success, que este archivo venía reservando para esta pantalla. */
+.day-cell.is-free {
+  --cell-bg: color-mix(in srgb, var(--color-success) 10%, var(--color-surface-solid));
+}
+
 .day-cell:hover {
-  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface-solid));
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--cell-bg));
 }
 
 /* Las cuatro esquinas. Siempre hay 6 semanas de 7 días (WEEKS_IN_GRID), así
@@ -103,12 +115,16 @@
 /* Los días de relleno (del mes anterior o del siguiente) se pueden tocar,
    pero se ven apagados para que no compitan con el mes que se está viendo. */
 .day-cell.is-outside {
-  background: color-mix(in srgb, var(--color-bg) 60%, var(--color-surface-solid));
+  --cell-bg: color-mix(in srgb, var(--color-bg) 60%, var(--color-surface-solid));
   color: var(--color-text-muted);
 }
 
+.day-cell.is-outside.is-free {
+  --cell-bg: color-mix(in srgb, var(--color-success) 6%, var(--color-bg));
+}
+
 .day-cell.is-selected {
-  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface-solid));
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--cell-bg));
   box-shadow: inset 0 0 0 2px var(--color-primary);
 }
 
@@ -160,15 +176,32 @@
   min-width: 0;
 }
 
-/* Un solo color: en esta pantalla ya no hay turnos libres, así que el punto
-   no distingue nada — solo marca "acá hay una clase". El verde de
-   --color-success queda libre para la pantalla de disponibilidad. */
+/* El punto de una clase propia es azul y no distingue nada más: solo marca
+   "acá hay una clase". El verde queda para los horarios libres de abajo. */
 .day-event-dot {
   flex-shrink: 0;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--color-primary);
+}
+
+/* Horarios libres para reservar: verde, y el número aparte del texto para que
+   sobreviva al breakpoint donde .day-event-title se esconde. */
+.day-event-free .day-event-dot {
+  background: var(--color-success);
+}
+
+.day-event-free .day-event-title {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.day-event-free-count {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--color-success);
+  font-variant-numeric: tabular-nums;
 }
 
 .day-event-time {
@@ -232,6 +265,17 @@
     height: 10px;
     padding: 0;
     justify-content: flex-start;
+  }
+
+  /* El número de libres sobrevive: es lo único que distingue un día con
+     horarios para reservar cuando las clases son solo puntitos. */
+  .day-event-free {
+    gap: 2px;
+  }
+
+  .day-event-free-count {
+    font-size: 9px;
+    line-height: 1;
   }
 
   .day-cell-events {

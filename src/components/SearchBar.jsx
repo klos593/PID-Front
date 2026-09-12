@@ -1,11 +1,12 @@
 import { Component } from 'react'
+import withRouter from '../routes/withRouter.jsx'
 import { SearchIcon } from './icons.jsx'
 import './SearchBar.css'
 
 /**
- * Buscador de la barra superior. Por ahora es solo la cáscara visual: el
- * input está controlado (el estado del texto vive acá) pero el submit
- * todavía no busca nada — ver el TODO en handleSubmit.
+ * Buscador de la barra superior. Al enviar lleva a la pantalla de reservar
+ * con lo buscado en la URL, donde se convierte en un filtro más (ver
+ * pages/Booking/BookingBoard.jsx).
  *
  * Reusa la forma del buscador de materias de SubjectPicker (ícono a la
  * izquierda, input con padding para no taparlo), pero redondeado como
@@ -22,11 +23,19 @@ class SearchBar extends Component {
 
   handleSubmit = (event) => {
     event.preventDefault()
-    // TODO(buscador): cuando exista /api/teachers?q= hay que navegar a
-    // /buscar?q=<query> y mostrar los resultados en SearchResultsPage. El
-    // puente para navegar desde un class component ya existe
-    // (routes/withRouter.jsx): envolver este componente y usar
-    // this.props.router.navigate. Falta solamente el endpoint.
+    const q = this.state.query.trim()
+
+    // Se aplica al ENVIAR y no mientras se tipea: esta barra vive en todas las
+    // pantallas, así que buscar por tecla te sacaría del calendario a la mitad
+    // de una palabra y cada letra sería una entrada del historial.
+    //
+    // Lo buscado lo interpreta la pantalla de reservar: si es una materia
+    // queda elegida como si se hubiera tocado el chip, y si no se toma como
+    // nombre de docente (ver resolveQuery en utils/booking.js). La ruta
+    // /buscar sigue existiendo para un buscador general más adelante.
+    this.props.router.navigate(
+      q ? `/disponibilidad?q=${encodeURIComponent(q)}` : '/disponibilidad',
+    )
   }
 
   render() {
@@ -45,4 +54,4 @@ class SearchBar extends Component {
   }
 }
 
-export default SearchBar
+export default withRouter(SearchBar)

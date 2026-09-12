@@ -1,32 +1,10 @@
-import { Component, createRef } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { Component } from 'react'
 import Banner from '../../components/Banner.jsx'
-import MonthHeader from './MonthHeader.jsx'
-import MonthGrid from './MonthGrid.jsx'
+import MonthPane from './MonthPane.jsx'
 import DayAgenda from './DayAgenda.jsx'
-import {
-  addMonths,
-  buildMonthGrid,
-  formatMonthTitle,
-  fromISODate,
-  startOfMonth,
-  toISODate,
-} from '../../utils/calendar.js'
+import { fromISODate, toISODate } from '../../utils/calendar.js'
 import { fetchClasses } from '../../api/client.js'
 import './CalendarPage.css'
-
-// Mismo patrón que RegisterPage pero con menos desplazamiento: acá se mueve
-// una grilla entera, no una tarjeta, y 60px se sentía exagerado.
-const slideVariants = {
-  enter: (direction) => ({ x: direction > 0 ? 40 : -40, opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit: (direction) => ({ x: direction > 0 ? -40 : 40, opacity: 0 }),
-}
-
-// Cuántas clases mostrar por celda antes de poder medir de verdad (y en
-// jsdom, donde no hay layout y todo mide 0).
-const DEFAULT_VISIBLE_EVENTS = 3
-const FALLBACK_LINE_HEIGHT = 19
 
 // Esta pantalla es "mis clases": solo las reservadas/confirmadas. Los turnos
 // libres son de la pantalla de disponibilidad, no de acá.
@@ -38,24 +16,23 @@ const CALENDAR_STATUS = 'reservada'
  * izquierda el detalle del día seleccionado. Es la primera pantalla que ve
  * alguien que entra a la app.
  *
- * Es el único componente con métodos de ciclo de vida, y va explicado porque
- * rompe con el resto: en RegisterPage el fetch tiene un disparador natural
- * (el usuario pasa de paso), pero una pantalla de entrada no tiene ninguno —
- * los datos tienen que estar cuando aparece. componentDidMount es el
- * equivalente en clases a un efecto de montaje, y componentDidUpdate
- * recarga cuando se cambia de mes. El otro motivo para tener ciclo de vida
- * acá es que hay que medir el alto real de las celdas, y eso solo se puede
- * hacer después de pintar.
+ * El fetch no arranca en componentDidMount sino cuando MonthPane avisa qué
+ * rango abarca la grilla (onRangeChange), que pasa al montarse y cada vez que
+ * recarga cuando se cambia de mes.
+ *
+ * El calendario en sí (el mes visible, las flechas, la animación y la medición
+ * de cuántas líneas entran por celda) vive en MonthPane, que comparte con la
+ * pantalla de reservar: acá solo queda de dónde salen los datos.
  */
 class CalendarPage extends Component {
   state = {
-    viewDate: startOfMonth(new Date().getFullYear(), new Date().getMonth()),
     selectedIso: toISODate(new Date()),
-    direction: 1,
+    // El rango lo decide MonthPane y llega por onRangeChange.
+    from: null,
+    to: null,
     classes: [],
     classesLoading: false,
     classesError: null,
-    maxVisibleEvents: DEFAULT_VISIBLE_EVENTS,
   }
 
   // Contador para descartar respuestas viejas: si se cambia de mes mientras
@@ -64,31 +41,8 @@ class CalendarPage extends Component {
   // desarrollo.
   fetchToken = 0
 
-  gridRef = createRef()
-
-  componentDidMount() {
-    this.loadClasses()
-    this.measureVisibleEvents()
-    window.addEventListener('resize', this.measureVisibleEvents)
-  }
-
-  componentDidUpdate(prevProps, prevState) {
-    if (prevState.viewDate !== this.state.viewDate) {
-      this.loadClasses()
-    }
-    // Las celdas cambian de alto cuando aparece el cartel de error o cuando
-    // el navegador termina de acomodar la grilla.
-    this.measureVisibleEvents()
-  }
-
   componentWillUnmount() {
     this.fetchToken += 1
-    window.removeEventListener('resize', this.measureVisibleEvents)
-  }
-
-  getWeeks() {
-    const { viewDate } = this.state
-    return buildMonthGrid(viewDate.getFullYear(), viewDate.getMonth())
   }
 
   /** Las clases agrupadas por fecha ISO, cada lista ordenada por hora. */
@@ -113,37 +67,13 @@ class CalendarPage extends Component {
     return map
   }
 
-  /**
-   * Cuántas líneas de clase entran en una celda. Se mide el contenedor de
-   * las clases (que se queda con el alto sobrante, así que no depende de
-   * cuántas haya) y se lo divide por el alto de una línea, que sale de la
-   * variable CSS --day-event-line para no repetir el número en dos lados.
-   *
-   * En jsdom todo mide 0: en ese caso no tocamos el valor por defecto.
-   */
-  measureVisibleEvents = () => {
-    const grid = this.gridRef.current
-    if (!grid) return
-
-    const container = grid.querySelector('[data-cell-events]')
-    if (!container) return
-
-    const available = container.clientHeight
-    if (available <= 0) return
-
-    const declared = getComputedStyle(grid).getPropertyValue('--day-event-line')
-    const lineHeight = parseFloat(declared) || FALLBACK_LINE_HEIGHT
-    const max = Math.max(Math.floor(available / lineHeight), 0)
-
-    if (max !== this.state.maxVisibleEvents) {
-      this.setState({ maxVisibleEvents: max })
-    }
+  /** MonthPane avisa qué rango abarca la grilla; recién ahí se pide. */
+  handleRangeChange = (from, to) => {
+    this.setState({ from, to })
+    this.loadClasses(from, to)
   }
 
-  loadClasses = () => {
-    const weeks = this.getWeeks()
-    const from = weeks[0][0].iso
-    const to = weeks[weeks.length - 1][6].iso
+  loadClasses = (from, to) => {
     const token = ++this.fetchToken
 
     this.setState({ classesLoading: true, classesError: null })
@@ -166,70 +96,25 @@ class CalendarPage extends Component {
       })
   }
 
-  handlePrevMonth = () => {
-    this.setState((prev) => ({ viewDate: addMonths(prev.viewDate, -1), direction: -1 }))
-  }
-
-  handleNextMonth = () => {
-    this.setState((prev) => ({ viewDate: addMonths(prev.viewDate, 1), direction: 1 }))
-  }
-
-  handleToday = () => {
-    const today = new Date()
-    this.setState((prev) => {
-      const viewDate = startOfMonth(today.getFullYear(), today.getMonth())
-      return {
-        viewDate: viewDate.getTime() === prev.viewDate.getTime() ? prev.viewDate : viewDate,
-        selectedIso: toISODate(today),
-        direction: viewDate < prev.viewDate ? -1 : 1,
-      }
-    })
-  }
-
-  handleSelectDay = (iso) => () => {
+  handleSelectDay = (iso) => {
     this.setState({ selectedIso: iso })
   }
 
   render() {
-    const { viewDate, selectedIso, direction, classesLoading, classesError, maxVisibleEvents } =
-      this.state
+    const { selectedIso, classesLoading, classesError } = this.state
     const classesByDate = this.getClassesByDate()
 
     return (
       <div className="calendar-page">
-        <section className="calendar-main">
-          <MonthHeader
-            title={formatMonthTitle(viewDate)}
-            loading={classesLoading}
-            onPrev={this.handlePrevMonth}
-            onNext={this.handleNextMonth}
-            onToday={this.handleToday}
-          />
+        <MonthPane
+          eventsByDate={classesByDate}
+          selectedIso={selectedIso}
+          loading={classesLoading}
+          onSelectDay={this.handleSelectDay}
+          onRangeChange={this.handleRangeChange}
+        >
           {classesError ? <Banner type="danger">{classesError}</Banner> : null}
-          <div className="calendar-viewport">
-            <AnimatePresence mode="wait" custom={direction} initial={false}>
-              <motion.div
-                key={viewDate.getTime()}
-                className="calendar-slide"
-                custom={direction}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.2, ease: 'easeInOut' }}
-              >
-                <MonthGrid
-                  weeks={this.getWeeks()}
-                  classesByDate={classesByDate}
-                  selectedIso={selectedIso}
-                  onSelectDay={this.handleSelectDay}
-                  maxVisibleEvents={maxVisibleEvents}
-                  gridRef={this.gridRef}
-                />
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </section>
+        </MonthPane>
 
         {/* Va después en el DOM pero se dibuja a la izquierda (order en el
             CSS): el calendario es el contenido principal y el detalle es

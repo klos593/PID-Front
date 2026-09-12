@@ -6,6 +6,16 @@
   margin-inline: auto;
 }
 
+/* El tablero del alumno ocupa exactamente la pantalla: el calendario se
+   estira hasta donde llega y la lista de tarjetas scrollea adentro, en vez de
+   estirar la página. Sin el height acá la cadena se corta —.booking-board es
+   height:100% de este div— y el calendario queda del alto de su contenido. */
+.availability-page.is-board {
+  height: 100%;
+  min-height: 0;
+  max-width: none;
+}
+
 .availability-empty,
 .availability-chooser {
   max-width: 720px;

@@ -9,7 +9,10 @@
 // conectar cada una es borrar una línea y descomentar la otra.
 
 import {
+  addMockStudentLesson,
   getMockAvailabilityByTeacher,
+  getMockAvailabilitySlots,
+  getMockStudentLessons,
   getMockClasses,
   MOCK_SUBJECTS,
   MOCK_TEACHERS,
@@ -90,13 +93,44 @@ export function fetchTeachers() {
 }
 
 export function fetchAvailabilityByTeacher(teacherId) {
-  // MOCK: un solo pedido con TODAS las materias del docente, no una por
+  // MOCK: un solo pedido con TODAS las materias de ESE docente, no una por
   // materia. La pantalla necesita las otras sí o sí —son las que bloquean
   // horarios, porque nadie puede dar dos clases a la vez— y pedirlas de a una
   // sería un N+1 con N estados de carga y una carrera entre promesas cada vez
   // que se cambia de materia.
   return mockResponse(getMockAvailabilityByTeacher(teacherId))
   // return request(`/api/teachers/${teacherId}/availability`)
+}
+
+export function fetchAvailability({ from, to }) {
+  // MOCK: la disponibilidad YA con fecha y YA neta de lo reservado. El mock
+  // hace acá el trabajo que va a hacer el backend: guarda plantillas semanales
+  // y las proyecta sobre el rango que pide la pantalla (ver expandAvailability
+  // en utils/booking.js). La pantalla del alumno nunca ve una plantilla
+  // semanal, igual que no la va a ver cuando esto sea HTTP.
+  return mockResponse(getMockAvailabilitySlots(from, to))
+  // return request(`/api/availability?from=${from}&to=${to}`)
+}
+
+export function fetchMyLessons({ from, to }) {
+  // MOCK: las clases que YA reservó el alumno logueado. No sale de
+  // fetchClasses porque ese es un listado global sin dueño: `studentName` es
+  // texto de pantalla y todavía no hay studentId (ver mocks.js).
+  return mockResponse(getMockStudentLessons(from, to))
+  // return request(
+  //   `/api/classes?from=${from}&to=${to}&status=reservada&student=me`,
+  // )
+}
+
+export function bookLesson(lesson) {
+  // MOCK: empuja la clase a las del alumno en mocks.js. Como la
+  // disponibilidad se calcula restando esas clases, el horario deja de
+  // ofrecerse solo en la próxima carga, sin tener que tocar nada más.
+  return mockResponse({ lesson: addMockStudentLesson(lesson) })
+  // return request('/api/classes', {
+  //   method: 'POST',
+  //   body: JSON.stringify(lesson),
+  // })
 }
 
 export function saveAvailability(subjectId, schedule) {

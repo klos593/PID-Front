@@ -59,6 +59,41 @@ describe('DayCell', () => {
     expect(screen.getByText('+2')).toBeInTheDocument()
   })
 
+  it('muestra los horarios libres en verde', () => {
+    renderCell({ events: [], freeCount: 3, maxVisible: 3 })
+    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(screen.getByText('libres')).toBeInTheDocument()
+    expect(screen.getByRole('button').className).toContain('is-free')
+  })
+
+  it('sin horarios libres no hay línea verde ni tinte', () => {
+    renderCell({ events: [], freeCount: 0, maxVisible: 3 })
+    expect(screen.queryByText('libres')).not.toBeInTheDocument()
+    expect(screen.getByRole('button').className).not.toContain('is-free')
+  })
+
+  it('la línea verde se lleva un renglón antes que las clases', () => {
+    // Con lugar para 3 líneas, la verde toma una y quedan 2 para las clases:
+    // como hay 4, una se usa para el "+N" y se ve una sola.
+    const events = [
+      lesson('a', '09:00', 'Física'),
+      lesson('b', '10:30', 'Inglés'),
+      lesson('c', '14:00', 'Química'),
+      lesson('d', '16:30', 'Álgebra'),
+    ]
+    renderCell({ events, freeCount: 2, maxVisible: 3 })
+
+    expect(screen.getByText('Física')).toBeInTheDocument()
+    expect(screen.queryByText('Inglés')).not.toBeInTheDocument()
+    expect(screen.getByText('+3')).toBeInTheDocument()
+    expect(screen.getByText('libres')).toBeInTheDocument()
+  })
+
+  it('la etiqueta accesible nombra los horarios libres solo si hay', () => {
+    renderCell({ events: [lesson('a', '09:00', 'Física')], freeCount: 2, maxVisible: 3 })
+    expect(screen.getByRole('button')).toHaveAccessibleName(/1 clase, 2 horarios libres$/)
+  })
+
   it('cuenta las clases en la etiqueta accesible', () => {
     renderCell({ events: [lesson('a', '09:00', 'Física')], maxVisible: 3 })
     expect(screen.getByRole('button')).toHaveAccessibleName(/1 clase$/)

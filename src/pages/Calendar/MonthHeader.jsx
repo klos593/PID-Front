@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon, SpinnerIcon } from '../../components/icons.jsx'
+import './MonthHeader.css'
 
 /**
  * Encabezado del calendario: el mes que se está viendo, las flechas para
