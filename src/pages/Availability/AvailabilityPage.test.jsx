@@ -147,6 +147,23 @@ describe('AvailabilityPage — vista de docente', () => {
     expect(screen.queryByLabelText(/ocupado por Matemática/)).not.toBeInTheDocument()
   })
 
+  it('tiene una flecha para volver al listado de materias', async () => {
+    renderAt('/disponibilidad/1', { viewRole: 'docente', user: docente })
+    await esperarCarga()
+
+    expect(screen.getByLabelText('Volver a la lista de materias')).toHaveAttribute(
+      'href',
+      '/disponibilidad',
+    )
+  })
+
+  it('el elegidor no tiene flecha: ya está en el listado', async () => {
+    renderAt('/disponibilidad', { viewRole: 'docente', user: docente })
+    await esperarCarga()
+
+    expect(screen.queryByLabelText('Volver a la lista de materias')).not.toBeInTheDocument()
+  })
+
   it('guardar arranca apagado y se prende al tocar una celda', async () => {
     renderAt('/disponibilidad/3', { viewRole: 'docente', user: docente })
     await esperarCarga()
@@ -179,7 +196,7 @@ describe('AvailabilityPage — vista de docente', () => {
     await esperarCarga()
 
     await userEvent.click(screen.getByLabelText('Martes 10:00'))
-    expect(screen.getByLabelText('Martes 10:00, disponible')).toBeInTheDocument()
+    expect(screen.getByLabelText('Martes 10:00, disponible sin guardar')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
     expect(screen.getByLabelText('Martes 10:00')).toBeInTheDocument()
@@ -198,7 +215,9 @@ describe('AvailabilityPage — vista de docente', () => {
     renderAt('/disponibilidad/1', { viewRole: 'docente', user: docente })
     await esperarCarga()
 
+    // Una hora entera: si no, la validación corta antes de llamar al backend.
     await userEvent.click(screen.getByLabelText('Martes 10:00'))
+    await userEvent.click(screen.getByLabelText('Martes 10:30'))
     await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo.')
@@ -240,12 +259,92 @@ describe('AvailabilityPage — vista de docente', () => {
     expect(await screen.findByText('Disponibilidad de Álgebra')).toBeInTheDocument()
   })
 
-  it('muestra lo que se va a guardar para poder verificarlo', async () => {
-    renderAt('/disponibilidad/1', { viewRole: 'docente', user: docente })
+  it('no guarda una media hora suelta y dice cuál es', async () => {
+    renderAt('/disponibilidad/3', { viewRole: 'docente', user: docente })
     await esperarCarga()
 
-    expect(screen.getByText('Ver lo que se va a guardar')).toBeInTheDocument()
-    expect(screen.getByText(/"lunes"/)).toBeInTheDocument()
+    await userEvent.click(screen.getByLabelText('Martes 10:00'))
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    expect(saveAvailability).not.toHaveBeenCalled()
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No se puede guardar: Martes 10:00 – 10:30 dura media hora, y las clases duran 1 hora.',
+    )
+  })
+
+  it('antes de intentar guardar no marca nada', async () => {
+    renderAt('/disponibilidad/3', { viewRole: 'docente', user: docente })
+    await esperarCarga()
+
+    await userEvent.click(screen.getByLabelText('Martes 10:00'))
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(document.querySelector('.sched-block.is-invalid')).toBeNull()
+  })
+
+  it('el aviso se borra solo al completar la hora', async () => {
+    renderAt('/disponibilidad/3', { viewRole: 'docente', user: docente })
+    await esperarCarga()
+
+    await userEvent.click(screen.getByLabelText('Martes 10:00'))
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(document.querySelector('.sched-block.is-invalid')).not.toBeNull()
+
+    await userEvent.click(screen.getByLabelText('Martes 10:30'))
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(document.querySelector('.sched-block.is-invalid')).toBeNull()
+  })
+
+  it('1 h 30 se guarda: no tiene que ser múltiplo de la clase', async () => {
+    renderAt('/disponibilidad/3', { viewRole: 'docente', user: docente })
+    await esperarCarga()
+
+    await userEvent.click(screen.getByLabelText('Martes 10:00'))
+    await userEvent.click(screen.getByLabelText('Martes 10:30'))
+    await userEvent.click(screen.getByLabelText('Martes 11:00'))
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => expect(saveAvailability).toHaveBeenCalledTimes(1))
+    expect(saveAvailability).toHaveBeenCalledWith(3, {
+      martes: [{ start: '10:00', end: '11:30' }],
+    })
+  })
+
+  it('cancelar borra el aviso', async () => {
+    renderAt('/disponibilidad/3', { viewRole: 'docente', user: docente })
+    await esperarCarga()
+
+    await userEvent.click(screen.getByLabelText('Martes 10:00'))
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('cambiar de materia empieza sin aviso', async () => {
+    render(
+      <MemoryRouter initialEntries={['/disponibilidad/3']}>
+        <Link to="/disponibilidad/1">Ir a Matemática</Link>
+        <Routes>
+          <Route
+            path="/disponibilidad/:materiaId"
+            element={<AvailabilityPage viewRole="docente" user={docente} />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await esperarCarga()
+
+    await userEvent.click(screen.getByLabelText('Martes 10:00'))
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('link', { name: 'Ir a Matemática' }))
+    await esperarCarga()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('sin usuario pide iniciar sesión', () => {

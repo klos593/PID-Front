@@ -5,12 +5,16 @@ import {
   DAY_KEYS,
   DAY_LABELS,
   dayLabel,
+  findShortRuns,
   formatRangeLabel,
+  formatShortRunsError,
+  formatShortRunsStatus,
   formatSlotTotal,
   hourRangeToIndexes,
   mergeSchedules,
   parseSlotId,
   rangesToSlotIds,
+  runsToSlotIds,
   sameSlots,
   slotId,
   slotIdAt,
@@ -299,6 +303,35 @@ describe('buildDayColumn', () => {
     expect(cells[18].state).toBe('blocked')
   })
 
+  it('marca inválido el tramo que le señalan, sin dejar de estar seleccionado', () => {
+    const { blocks, cells } = buildDayColumn({
+      ...base,
+      selectedIds: new Set(['lunes-0530']),
+      invalidIds: new Set(['lunes-0530']),
+    })
+    expect(blocks[0]).toMatchObject({ state: 'selected', invalid: true, span: 1 })
+    expect(cells[11]).toMatchObject({ state: 'selected', invalid: true })
+  })
+
+  it('un tramo válido cortado por el rango visible NO se marca solo por ser corto', () => {
+    // 08:30–09:30 dura una hora, pero con fromIndex 18 (09:00) se ve media. La
+    // validez la decide findShortRuns sobre TODOS los slots, no el span visible
+    // — si se dedujera del span, esto daría un falso positivo.
+    const { blocks } = buildDayColumn({
+      ...base,
+      fromIndex: 18,
+      toIndex: 40,
+      selectedIds: new Set(['lunes-0830', 'lunes-0900']),
+      invalidIds: new Set(),
+    })
+    expect(blocks[0]).toMatchObject({ span: 1, invalid: false })
+  })
+
+  it('sin invalidIds nada es inválido', () => {
+    const { blocks } = buildDayColumn({ ...base, selectedIds: new Set(['lunes-0530']) })
+    expect(blocks[0].invalid).toBe(false)
+  })
+
   it('marca las medias horas para poder pintarlas distinto', () => {
     const { cells } = buildDayColumn({ ...base, selectedIds: new Set() })
     expect(cells[0].isHalf).toBe(false)
@@ -386,5 +419,100 @@ describe('formatSlotTotal', () => {
     expect(formatSlotTotal(3)).toBe('1 h 30 min')
     expect(formatSlotTotal(1)).toBe('30 min')
     expect(formatSlotTotal(0)).toBe('0 min')
+  })
+})
+
+describe('findShortRuns', () => {
+  it('una media hora suelta no llega a una clase', () => {
+    expect(findShortRuns(new Set(['martes-0530']))).toEqual([
+      { dayKey: 'martes', start: '05:30', end: '06:00' },
+    ])
+  })
+
+  it('una hora está bien', () => {
+    expect(findShortRuns(new Set(['martes-0530', 'martes-0600']))).toEqual([])
+  })
+
+  it('1 h 30 también está bien: no tiene que ser múltiplo de la clase', () => {
+    expect(findShortRuns(new Set(['martes-0530', 'martes-0600', 'martes-0630']))).toEqual([])
+  })
+
+  it('mide cada tramo por separado, no el día entero', () => {
+    // 14:00–15:00 está bien; la de 16:30 está sola. Dos tramos del mismo día no
+    // se suman: entre medio hay un hueco.
+    const ids = new Set(['viernes-1400', 'viernes-1430', 'viernes-1630'])
+    expect(findShortRuns(ids)).toEqual([{ dayKey: 'viernes', start: '16:30', end: '17:00' }])
+  })
+
+  it('los devuelve en el orden de DAY_KEYS aunque el Set venga desordenado', () => {
+    const runs = findShortRuns(new Set(['jueves-1200', 'lunes-0800', 'martes-0530']))
+    expect(runs.map((run) => run.dayKey)).toEqual(['lunes', 'martes', 'jueves'])
+  })
+
+  it('la última media hora del día termina en 24:00', () => {
+    expect(findShortRuns(new Set(['lunes-2330']))).toEqual([
+      { dayKey: 'lunes', start: '23:30', end: '24:00' },
+    ])
+  })
+
+  it('sin nada pintado no hay tramos cortos', () => {
+    expect(findShortRuns(new Set())).toEqual([])
+  })
+})
+
+describe('runsToSlotIds', () => {
+  it('devuelve los ids de cada tramo', () => {
+    const runs = [
+      { dayKey: 'martes', start: '05:30', end: '06:00' },
+      { dayKey: 'jueves', start: '12:00', end: '12:30' },
+    ]
+    expect([...runsToSlotIds(runs)].sort()).toEqual(['jueves-1200', 'martes-0530'])
+  })
+
+  it('sin tramos da un Set vacío', () => {
+    expect(runsToSlotIds([]).size).toBe(0)
+  })
+})
+
+describe('formatShortRunsError', () => {
+  const martes = { dayKey: 'martes', start: '05:30', end: '06:00' }
+  const jueves = { dayKey: 'jueves', start: '12:00', end: '12:30' }
+
+  it('uno solo va en singular', () => {
+    expect(formatShortRunsError([martes])).toBe(
+      'No se puede guardar: Martes 05:30 – 06:00 dura media hora, y las clases duran 1 hora.',
+    )
+  })
+
+  it('dos se unen con "y" y el verbo va en plural', () => {
+    expect(formatShortRunsError([martes, jueves])).toContain(
+      'Martes 05:30 – 06:00 y Jueves 12:00 – 12:30 duran media hora',
+    )
+  })
+
+  it('más de tres se cortan para que el cartel se pueda leer', () => {
+    const cinco = DAY_KEYS.slice(0, 5).map((dayKey) => ({ dayKey, start: '08:00', end: '08:30' }))
+    expect(formatShortRunsError(cinco)).toContain('y 2 horarios más duran media hora')
+  })
+
+  it('con uno solo de más lo dice en singular', () => {
+    const cuatro = DAY_KEYS.slice(0, 4).map((dayKey) => ({ dayKey, start: '08:00', end: '08:30' }))
+    expect(formatShortRunsError(cuatro)).toContain('y 1 horario más')
+  })
+
+  it('sin tramos no hay cartel', () => {
+    expect(formatShortRunsError([])).toBeNull()
+  })
+})
+
+describe('formatShortRunsStatus', () => {
+  it('nombra los tramos sin el prefijo de error', () => {
+    expect(formatShortRunsStatus([{ dayKey: 'martes', start: '05:30', end: '06:00' }])).toBe(
+      'Martes 05:30 – 06:00 dura media hora.',
+    )
+  })
+
+  it('sin tramos no dice nada', () => {
+    expect(formatShortRunsStatus([])).toBe('')
   })
 })

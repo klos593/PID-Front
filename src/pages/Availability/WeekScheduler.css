@@ -9,6 +9,13 @@
      cosa: si un bloque de media hora es demasiado bajo para su etiqueta. */
   --sched-slot-h: 14px;
   --sched-gutter-w: 46px;
+  /* El radio del marco y el de adentro (el de afuera menos el borde). El de
+     adentro lo copian los hijos de las esquinas DE LA DERECHA: ahí es donde
+     recorta el overflow:hidden, y un hijo cuadrado pegado al borde pierde su
+     anillo en diagonal. Las esquinas de la izquierda son del gutter, que no
+     dibuja ningún anillo, así que no necesitan nada. */
+  --sched-radius: 12px;
+  --sched-radius-inner: 11px;
 
   width: 100%;
 }
@@ -85,7 +92,7 @@
   gap: 1px;
   background: var(--color-border);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--sched-radius);
   overflow: hidden;
 
   /* Un arrastre con el dedo no tiene que seleccionar texto. */
@@ -153,6 +160,23 @@
   box-shadow: inset 0 0 0 2px var(--color-primary);
 }
 
+/* La última columna es la que toca el borde derecho. :last-child, y no
+   :nth-child(8), porque en el teléfono se dibuja UN solo día: esa única columna
+   es a la vez la primera y la última.
+
+   :first-of-type / :last-of-type y no :first-child / :last-child porque adentro
+   de la columna las celdas son <button> y los bloques son <div>: el selector
+   por tipo agarra la primera y la última CELDA sin importar dónde quedaron los
+   bloques en el DOM. De paso, eso hace que recortar con startHour/endHour
+   funcione solo: la primera celda que se dibuja es la de fromIndex. */
+.sched-body > .sched-day:last-child > .sched-cell:first-of-type {
+  border-top-right-radius: var(--sched-radius-inner);
+}
+
+.sched-body > .sched-day:last-child > .sched-cell:last-of-type {
+  border-bottom-right-radius: var(--sched-radius-inner);
+}
+
 /* El bloque fusionado va POR ENCIMA de las celdas y NO recibe eventos: el
    área sensible sigue siendo la media hora de abajo. Al abarcar varias filas
    tapa también los gaps de 1px que hay entre ellas, así que borra sus propias
@@ -172,15 +196,40 @@
   line-height: 1.3;
 }
 
-.sched-block.is-selected {
+/* Lo que YA está guardado va en el azul de la app — el mismo del botón
+   "Guardar cambios", para que se lea de una que eso ya está. */
+.sched-block.is-selected,
+.sched-legend-swatch.is-selected {
+  background: color-mix(in srgb, var(--color-primary) 18%, var(--color-surface-solid));
+  box-shadow: inset 0 0 0 1.5px var(--color-primary);
+  color: var(--color-text);
+}
+
+/* Lo pintado en esta sesión y todavía sin guardar. Va DESPUÉS del azul: un
+   bloque nuevo tiene las dos clases y pesan igual, así que gana el de abajo. */
+.sched-block.is-pending,
+.sched-legend-swatch.is-pending {
   background: color-mix(in srgb, var(--color-success) 20%, var(--color-surface-solid));
   box-shadow: inset 0 0 0 1.5px var(--color-success);
   color: var(--color-text);
 }
 
+/* Estaba guardado y el docente lo despintó: se muestra "fantasma" hasta que
+   guarde, así se ve también la mitad de los cambios que consiste en borrar.
+   Punteado además de despintado: que no dependa solo del color. */
+.sched-block.is-removed,
+.sched-legend-swatch.is-removed {
+  background: transparent;
+  box-shadow: none;
+  border: 1.5px dashed color-mix(in srgb, var(--color-text-muted) 70%, transparent);
+  color: var(--color-text-muted);
+  opacity: 0.75;
+}
+
 /* Ocupado por otra materia: rayado + gris. No es un error (por eso no va
    --color-danger) y el rayado hace que no dependa solo del color. */
-.sched-block.is-blocked {
+.sched-block.is-blocked,
+.sched-legend-swatch.is-blocked {
   background: repeating-linear-gradient(
     -45deg,
     color-mix(in srgb, var(--color-text-muted) 18%, var(--color-surface-solid)) 0 5px,
@@ -209,6 +258,35 @@
 .sched-block.is-compact .sched-block-time,
 .sched-block.is-compact .sched-block-subject {
   display: none;
+}
+
+/* Media hora suelta: no se puede guardar, porque una clase dura 1 h (ver
+   CLAUDE.md). Va DESPUÉS de .is-selected a propósito — un bloque corto tiene
+   las dos clases y las dos reglas pesan igual, así que gana la de abajo.
+   Anillo inset y no border: un borde correría la grilla. */
+.sched-block.is-invalid,
+.sched-legend-swatch.is-invalid {
+  background: color-mix(in srgb, var(--color-danger) 22%, var(--color-surface-solid));
+  box-shadow: inset 0 0 0 1.5px var(--color-danger);
+  color: var(--color-text);
+}
+
+/* El anillo del foco también se pone rojo: si no, pararse en la celda que está
+   mal la pinta de azul y tapa justo lo que hay que mirar. */
+.sched-cell.is-invalid:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--color-danger);
+}
+
+/* Los bloques van por grid-row y en el DOM están todos juntos al final, así que
+   el CSS no puede saber cuál quedó arriba de todo ni cuál abajo: lo marca la
+   columna (ver SchedulerDayColumn). Solo la esquina que coincide con el marco
+   cambia de radio; las otras tres se quedan con los 6px del bloque. */
+.sched-body > .sched-day:last-child > .sched-block.is-first-row {
+  border-top-right-radius: var(--sched-radius-inner);
+}
+
+.sched-body > .sched-day:last-child > .sched-block.is-last-row {
+  border-bottom-right-radius: var(--sched-radius-inner);
 }
 
 .sched-status {
@@ -277,6 +355,35 @@
   padding: 8px 12px;
   font-size: 13px;
   border-radius: 12px;
+}
+
+/* --- Referencia de colores ----------------------------------------------- */
+
+.sched-legend {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.sched-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Las muestras comparten las reglas de color con los bloques (cada regla de
+   estado lleva los dos selectores), así que si cambia un color del scheduler
+   la leyenda cambia sola y no se pueden desincronizar. */
+.sched-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 
 /* --- Vista de un día sola (teléfono) ------------------------------------- */

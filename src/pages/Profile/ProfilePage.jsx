@@ -14,8 +14,9 @@ import './ProfilePage.css'
  *
  * Mirando como docente se administran las materias que da: se agregan y se
  * quitan de la lista fija que trae la base, y cada materia tiene su propio
- * botón que lleva a la disponibilidad DE ESA MATERIA. Como alumno la lista es
- * de solo lectura.
+ * botón que lleva a la disponibilidad DE ESA MATERIA. Como alumno no hay
+ * sección de materias — el alumno no elige materias en su perfil, así que ni
+ * siquiera se pide el catálogo.
  *
  * Un solo botón "Guardar cambios" (apagado hasta que algo realmente cambie)
  * manda teléfono y materias juntos en una sola llamada, y "Cancelar" vuelve
@@ -52,8 +53,30 @@ class ProfilePage extends Component {
   }
 
   componentDidMount() {
-    // Sin usuario no hay nada que editar: no gastamos la llamada.
-    if (this.props.user) this.loadSubjects()
+    if (this.needsSubjects()) this.loadSubjects()
+  }
+
+  /**
+   * El interruptor de rol cambia viewRole SIN desmontar esta pantalla (App.jsx
+   * mantiene el mismo <Route> y solo cambia la prop), así que pasar de alumno a
+   * docente tiene que disparar la carga que al montar nos ahorramos. Sin esto
+   * el docente vería la lista vacía para siempre y parecería que no da ninguna
+   * materia.
+   */
+  componentDidUpdate(prevProps) {
+    if (prevProps.viewRole !== this.props.viewRole && this.needsSubjects()) {
+      this.loadSubjects()
+    }
+  }
+
+  /** El catálogo solo se muestra como docente: como alumno ni se pide. */
+  needsSubjects() {
+    return (
+      Boolean(this.props.user) &&
+      this.esDocente() &&
+      !this.state.subjectsLoading &&
+      this.state.subjects.length === 0
+    )
   }
 
   esDocente() {
@@ -246,24 +269,6 @@ class ProfilePage extends Component {
     )
   }
 
-  renderMateriasAlumno() {
-    const mias = this.getMisMaterias()
-    if (mias.length === 0) {
-      return <p className="profile-meta">Todavía no elegiste materias.</p>
-    }
-
-    // De solo lectura: <span>, no <button>.
-    return (
-      <div className="profile-subjects">
-        {mias.map((subject) => (
-          <span key={subject.id} className="subject-chip">
-            {subject.name}
-          </span>
-        ))}
-      </div>
-    )
-  }
-
   render() {
     const { user } = this.props
     const { telefono, touched, subjectsLoading, subjectsError, saving, saveError, saved } =
@@ -345,22 +350,21 @@ class ProfilePage extends Component {
             />
           </div>
 
-          <div className="profile-section">
-            <h2 className="profile-section-title">
-              {esDocente ? 'Materias que das' : 'Materias que te interesan'}
-            </h2>
-            {subjectsError ? <Banner type="danger">{subjectsError}</Banner> : null}
-            {subjectsLoading ? (
-              <p className="subject-loading">
-                <SpinnerIcon className="spin" />
-                Cargando materias...
-              </p>
-            ) : esDocente ? (
-              this.renderMateriasDocente()
-            ) : (
-              this.renderMateriasAlumno()
-            )}
-          </div>
+          {/* Solo el docente: el alumno no elige materias desde su perfil. */}
+          {esDocente ? (
+            <div className="profile-section">
+              <h2 className="profile-section-title">Materias que das</h2>
+              {subjectsError ? <Banner type="danger">{subjectsError}</Banner> : null}
+              {subjectsLoading ? (
+                <p className="subject-loading">
+                  <SpinnerIcon className="spin" />
+                  Cargando materias...
+                </p>
+              ) : (
+                this.renderMateriasDocente()
+              )}
+            </div>
+          ) : null}
 
           <div className="btn-row">
             <button
@@ -379,6 +383,15 @@ class ProfilePage extends Component {
               {saving ? <SpinnerIcon className="spin" /> : null}
               Guardar cambios
             </button>
+          </div>
+
+          {/* Un <Link> y no un <button>: así navega solo y de paso no corre
+              riesgo de mandar el formulario. El onClick limpia la sesión en
+              App, que es quien es dueño del usuario. */}
+          <div className="profile-logout">
+            <Link className="profile-logout-link" to="/ingresar" onClick={this.props.onLogout}>
+              Cerrar sesión
+            </Link>
           </div>
         </form>
       </div>

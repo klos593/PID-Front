@@ -14,6 +14,13 @@
    en un solo lado: este. */
 .month-grid-weeks {
   --day-event-line: 19px;
+  /* El radio del marco y el de adentro. El de adentro es el de afuera MENOS el
+     borde, y es el que tienen que copiar las cuatro celdas de las esquinas: el
+     overflow:hidden recorta con esa curva, así que una celda cuadrada pegada al
+     borde pierde el anillo de .is-selected (y el outline del foco) en una
+     diagonal justo en la esquina. */
+  --month-radius: 12px;
+  --month-radius-inner: 11px;
 
   flex: 1;
   min-height: 0;
@@ -24,7 +31,7 @@
   gap: 1px;
   background: var(--color-border);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--month-radius);
   overflow: hidden;
 }
 
@@ -72,6 +79,25 @@
 
 .day-cell:hover {
   background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface-solid));
+}
+
+/* Las cuatro esquinas. Siempre hay 6 semanas de 7 días (WEEKS_IN_GRID), así
+   que la posición en el DOM es la posición en pantalla y :first-child /
+   :last-child alcanzan — no hace falta que JS marque nada. */
+.month-grid-week:first-child .day-cell:first-child {
+  border-top-left-radius: var(--month-radius-inner);
+}
+
+.month-grid-week:first-child .day-cell:last-child {
+  border-top-right-radius: var(--month-radius-inner);
+}
+
+.month-grid-week:last-child .day-cell:first-child {
+  border-bottom-left-radius: var(--month-radius-inner);
+}
+
+.month-grid-week:last-child .day-cell:last-child {
+  border-bottom-right-radius: var(--month-radius-inner);
 }
 
 /* Los días de relleno (del mes anterior o del siguiente) se pueden tocar,

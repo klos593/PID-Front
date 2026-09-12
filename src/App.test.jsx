@@ -164,6 +164,24 @@ describe('App', () => {
     expect(await screen.findByText('Disponibilidad')).toBeInTheDocument()
   })
 
+  it('cerrar sesión lleva al login y se olvida del usuario', async () => {
+    go('/perfil')
+    render(<App />)
+    await screen.findByText('Agustín Klos')
+
+    await userEvent.click(screen.getByRole('link', { name: 'Cerrar sesión' }))
+
+    // Quedamos en el login...
+    expect(await screen.findByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
+
+    // ...y volviendo al perfil en la MISMA app ya no hay nadie. Se navega con
+    // el historial y un popstate porque desde el login no hay barra que tocar.
+    go('/perfil')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+
+    expect(await screen.findByText('Iniciá sesión para ver tu perfil.')).toBeInTheDocument()
+  })
+
   it('una ruta que no existe vuelve al calendario', async () => {
     go('/cualquier-cosa')
     render(<App />)

@@ -127,23 +127,33 @@
   margin-top: 16px;
 }
 
-.availability-json {
-  margin-top: 20px;
-  font-size: 12.5px;
-  color: var(--color-text-muted);
+.availability-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.availability-json summary {
-  cursor: pointer;
-}
-
-.availability-json pre {
-  margin-top: 8px;
-  padding: 12px;
+.availability-back {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   border: 1.5px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface-solid);
-  color: var(--color-text);
-  font-size: 12px;
-  overflow-x: auto;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.availability-back:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.availability-back svg {
+  width: 16px;
+  height: 16px;
 }

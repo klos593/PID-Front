@@ -195,6 +195,94 @@ export function slotIdsToRanges(slotIds) {
   return schedule
 }
 
+/**
+ * Cuántos slots dura una clase. Las clases duran 1 h (ver CLAUDE.md) y un slot
+ * es media hora, así que son dos. Un tramo de 1 h 30 vale —entran una clase y
+ * queda media hora suelta que el docente sabrá si usa—; lo que no vale es un
+ * tramo que no llegue ni a una clase.
+ */
+export const SLOTS_PER_CLASS = 60 / SLOT_MINUTES
+
+/**
+ * Los tramos contiguos que no llegan a durar una clase. Sale de
+ * slotIdsToRanges a propósito y no de un recorrido propio: los tramos que se
+ * validan tienen que ser LOS MISMOS que se guardan, y si algún día cambia cómo
+ * se colapsan, esto cambia solo.
+ *
+ * Devuelve [] cuando está todo bien, y si no una entrada por tramo, en el orden
+ * de DAY_KEYS y por hora adentro de cada día — que es el orden en el que se van
+ * a nombrar en el cartel.
+ */
+export function findShortRuns(slotIds) {
+  const schedule = slotIdsToRanges(slotIds)
+  const cortos = []
+
+  for (const dayKey of DAY_KEYS) {
+    for (const range of schedule[dayKey] || []) {
+      const slots = timeToSlotIndex(range.end) - timeToSlotIndex(range.start)
+      if (slots >= SLOTS_PER_CLASS) continue
+      cortos.push({ dayKey, start: range.start, end: range.end })
+    }
+  }
+
+  return cortos
+}
+
+/**
+ * Los ids de media hora que caen adentro de esos tramos, para poder pintarlos.
+ * Un tramo tiene la misma forma que un rango, así que esto es rangesToSlotIds
+ * con los tramos reagrupados por día.
+ */
+export function runsToSlotIds(runs) {
+  const schedule = {}
+  for (const run of runs) {
+    if (!schedule[run.dayKey]) schedule[run.dayKey] = []
+    schedule[run.dayKey].push({ start: run.start, end: run.end })
+  }
+  return rangesToSlotIds(schedule)
+}
+
+// Cuántos tramos se nombran antes de cortar. Tres entran en el renglón del
+// cartel; con siete días pintados mal, la lista completa no se lee.
+const MAX_SHORT_RUNS_LISTED = 3
+
+/** 'A', 'A y B', 'A, B y C'. La conjunción va sin coma antes. */
+function joinWithY(items) {
+  if (items.length <= 1) return items[0] || ''
+  return `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`
+}
+
+/**
+ * 'Martes 05:30 – 06:00 y Jueves 12:00 – 12:30 duran media hora'.
+ *
+ * Dice 'media hora' y no 'menos de una hora' porque con clases de 1 h el único
+ * tramo corto posible es de un slot. Si algún día la clase dura otra cosa, esta
+ * frase hay que reescribirla — la lógica de arriba se adapta sola con
+ * SLOTS_PER_CLASS, el texto no.
+ */
+function describeShortRuns(runs) {
+  const listados = runs
+    .slice(0, MAX_SHORT_RUNS_LISTED)
+    .map((run) => `${dayLabel(run.dayKey)} ${formatRangeLabel(run.start, run.end)}`)
+
+  const resto = runs.length - listados.length
+  if (resto > 0) listados.push(`${resto} ${resto === 1 ? 'horario' : 'horarios'} más`)
+
+  return `${joinWithY(listados)} ${runs.length === 1 ? 'dura' : 'duran'} media hora`
+}
+
+/** El cartel de error. null si no hay nada que avisar. */
+export function formatShortRunsError(runs) {
+  if (runs.length === 0) return null
+  return `No se puede guardar: ${describeShortRuns(runs)}, y las clases duran 1 hora.`
+}
+
+/** Lo mismo para el renglón de estado, sin el prefijo de error. */
+export function formatShortRunsStatus(runs) {
+  if (runs.length === 0) return ''
+  return `${describeShortRuns(runs)}.`
+}
+
 /** '14:00 – 15:00'. Raya (–), no guion, y 24 h como el resto de la app. */
 export function formatRangeLabel(start, end) {
   return `${start} – ${end}`
@@ -300,7 +388,15 @@ export function copyDayTo(slotIds, fromDay, toDays, blockedBySlot = {}) {
  * Dos celdas ocupadas seguidas solo se fusionan si las ocupa la MISMA
  * materia: si no, el bloque diría el nombre de una sola y mentiría.
  */
-export function buildDayColumn({ dayKey, fromIndex, toIndex, selectedIds, blockedBySlot = {} }) {
+export function buildDayColumn({
+  dayKey,
+  fromIndex,
+  toIndex,
+  selectedIds,
+  savedIds = new Set(),
+  blockedBySlot = {},
+  invalidIds = new Set(),
+}) {
   const cells = []
   const blocks = []
 
@@ -317,6 +413,8 @@ export function buildDayColumn({ dayKey, fromIndex, toIndex, selectedIds, blocke
       label: formatRangeLabel(slotIndexToTime(open.from), slotIndexToTime(endIndex)),
       state: open.state,
       blockedBy: open.blockedBy,
+      pending: open.pending,
+      invalid: open.invalid,
     })
     open = null
   }
@@ -324,7 +422,25 @@ export function buildDayColumn({ dayKey, fromIndex, toIndex, selectedIds, blocke
   for (let index = fromIndex; index < toIndex; index++) {
     const id = slotIdAt(dayKey, index)
     const blockedBy = blockedBySlot[id] || null
-    const state = blockedBy ? 'blocked' : selectedIds.has(id) ? 'selected' : 'free'
+    const selected = selectedIds.has(id)
+    // Cuatro estados y no dos: además de lo que está pintado, hay que mostrar
+    // lo que se va a BORRAR — un horario que estaba guardado y el docente
+    // despintó. Si solo desapareciera, no habría forma de ver esa mitad de lo
+    // que está por guardarse.
+    let state = 'free'
+    if (blockedBy) state = 'blocked'
+    else if (selected) state = 'selected'
+    else if (savedIds.has(id)) state = 'removed'
+    // Pintado pero todavía sin guardar. Volver a pintar un horario que ya
+    // estaba guardado lo deja en false, o sea que vuelve a verse como guardado
+    // — que es exactamente lo que va a pasar al guardar.
+    const pending = state === 'selected' && !savedIds.has(id)
+    // Que un tramo sea inválido es propiedad del TRAMO ENTERO, no de la celda,
+    // así que viene calculado de afuera (findShortRuns sobre todos los slots).
+    // Si se dedujera acá del span, un tramo legal cortado por startHour/endHour
+    // se marcaría mal: con startHour 9, un 08:30–09:30 se ve como media hora y
+    // no lo es.
+    const invalid = state === 'selected' && invalidIds.has(id)
 
     cells.push({
       id,
@@ -332,6 +448,8 @@ export function buildDayColumn({ dayKey, fromIndex, toIndex, selectedIds, blocke
       time: slotIndexToTime(index),
       state,
       blockedBy,
+      pending,
+      invalid,
       // La media hora se pinta apenas distinta para que el par :00/:30 se lea
       // como una hora sin dibujar dos tipos de línea.
       isHalf: index % 2 === 1,
@@ -342,12 +460,24 @@ export function buildDayColumn({ dayKey, fromIndex, toIndex, selectedIds, blocke
       continue
     }
 
-    // Un bloque se corta si cambia el estado o si cambia la materia que ocupa.
-    if (open && (open.state !== state || open.blockedBy !== blockedBy)) {
-      closeBlock(index)
-    }
+
+    // Un bloque se corta si cambia el estado, la materia que lo ocupa, o si el
+    // tramo pasa a ser inválido. Lo último no puede pasar hoy (dos celdas
+    // pegadas son el mismo tramo y comparten el veredicto) pero mantiene la
+    // regla "un bloque, un mensaje" si mañana se agrega otra validación.
+    // Un bloque se corta si cambia cualquiera de las cosas que se dibujan: el
+    // estado, la materia que lo ocupa, si está sin guardar o si es inválido.
+    // Así extender un horario guardado da dos bloques (el azul de lo que ya
+    // estaba y el verde de lo nuevo) en vez de uno solo que mienta.
+    const cambio =
+      open &&
+      (open.state !== state ||
+        open.blockedBy !== blockedBy ||
+        open.pending !== pending ||
+        open.invalid !== invalid)
+    if (cambio) closeBlock(index)
     if (!open) {
-      open = { from: index, state, blockedBy }
+      open = { from: index, state, blockedBy, pending, invalid }
     }
   }
 

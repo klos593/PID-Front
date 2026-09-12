@@ -9,6 +9,7 @@ import {
   DAY_KEYS,
   dayLabel,
   formatRangeLabel,
+  formatShortRunsStatus,
   formatSlotTotal,
   hourRangeToIndexes,
   parseSlotId,
@@ -34,8 +35,8 @@ const FALLBACK_SLOT_HEIGHT = 14
  *
  * Es un componente controlado: el Set de slots entra por `value` y sale por
  * `onChange`, que recibe un Set nuevo (nunca se muta el de arriba) y se llama
- * UNA VEZ POR GESTO, al soltar — no una vez por celda. Así el padre y el
- * JSON.stringify de la vista previa corren una vez y no cuarenta y ocho.
+ * UNA VEZ POR GESTO, al soltar — no una vez por celda: si no, el padre
+ * recalcularía todo cuarenta y ocho veces en un arrastre largo.
  *
  * `blockedBySlot` son los horarios que el docente ya ocupó con OTRA materia,
  * mapeados al nombre de esa materia: no se pueden tocar, porque nadie puede dar
@@ -164,15 +165,26 @@ class WeekScheduler extends Component {
 
   getStatusText() {
     const { lastTouchedDay } = this.state
+    // Lo que está mal va al final del mismo renglón: role="status" es "polite",
+    // y nombrar los tramos es lo único que le dice a quien no ve la grilla CUÁL
+    // es el horario que hay que arreglar (el bloque rojo es aria-hidden).
+    const cortos = formatShortRunsStatus(this.props.shortRuns)
 
+    let base
     if (lastTouchedDay) {
       const ranges = slotIdsToRanges(this.props.value)[lastTouchedDay]
-      if (!ranges) return `${dayLabel(lastTouchedDay)}: sin horarios.`
-      const texto = ranges.map((range) => formatRangeLabel(range.start, range.end)).join(', ')
-      return `${dayLabel(lastTouchedDay)}: ${texto}`
+      const texto = ranges
+        ? ranges.map((range) => formatRangeLabel(range.start, range.end)).join(', ')
+        : null
+      const dia = dayLabel(lastTouchedDay)
+      // Con punto final: si no, al pegarle el aviso de los tramos cortos queda
+      // "Martes: 05:30 – 06:00 Martes 05:30 – 06:00 dura media hora".
+      base = texto ? `${dia}: ${texto}.` : `${dia}: sin horarios.`
+    } else {
+      base = `${formatSlotTotal(countSlots(this.props.value))} por semana.`
     }
 
-    return `${formatSlotTotal(countSlots(this.props.value))} por semana.`
+    return cortos ? `${base} ${cortos}` : base
   }
 
   stopDragging() {
@@ -378,6 +390,44 @@ class WeekScheduler extends Component {
     )
   }
 
+  /**
+   * La referencia de colores. Los tres primeros están siempre; "se va a
+   * borrar" y "menos de 1 h" aparecen SOLO cuando hay alguno en pantalla, para
+   * que en el caso normal la leyenda sea corta y no haya que leer estados que
+   * no existen.
+   */
+  renderLegend() {
+    const items = [
+      { clase: 'is-selected', texto: 'Guardado' },
+      { clase: 'is-selected is-pending', texto: 'Sin guardar' },
+      { clase: 'is-blocked', texto: 'Otra materia' },
+    ]
+
+    if (this.hasRemoved()) items.push({ clase: 'is-removed', texto: 'Se va a borrar' })
+    if (this.props.shortRuns.length > 0) {
+      items.push({ clase: 'is-selected is-invalid', texto: 'Menos de 1 h' })
+    }
+
+    return (
+      <ul className="sched-legend">
+        {items.map((item) => (
+          <li key={item.texto} className="sched-legend-item">
+            <span className={`sched-legend-swatch ${item.clase}`} aria-hidden="true" />
+            {item.texto}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  /** ¿Hay algún horario guardado que el docente despintó y todavía no guardó? */
+  hasRemoved() {
+    for (const id of this.props.savedIds) {
+      if (!this.props.value.has(id)) return true
+    }
+    return false
+  }
+
   renderTabs() {
     const { activeDay } = this.state
 
@@ -460,6 +510,8 @@ class WeekScheduler extends Component {
               toIndex={toIndex}
               selectedIds={value}
               blockedBySlot={blockedBySlot}
+              savedIds={this.props.savedIds}
+              invalidIds={this.props.invalidIds}
               draftDay={dragDay}
               draftFrom={dragAnchor}
               draftTo={dragCursor}
@@ -474,6 +526,8 @@ class WeekScheduler extends Component {
           ))}
         </div>
 
+        {this.renderLegend()}
+
         <p className="sched-status" role="status">
           {this.getStatusText()}
         </p>
@@ -484,7 +538,12 @@ class WeekScheduler extends Component {
 
 WeekScheduler.defaultProps = {
   value: new Set(),
+  // Lo que ya está guardado. Vacío por defecto: sin nada guardado, todo lo
+  // pintado es nuevo, que es lo correcto para un scheduler suelto.
+  savedIds: new Set(),
   blockedBySlot: {},
+  invalidIds: new Set(),
+  shortRuns: [],
   startHour: 0,
   endHour: 24,
   disabled: false,

@@ -36,7 +36,8 @@ function renderProfile(props) {
 
 // Las materias llegan por promesa: si el test no la espera, el setState cae
 // afuera y React avisa con el warning de act(). Esperar a que se vaya el
-// cartel de "Cargando..." sirve igual haya materias, no haya, o falle.
+// cartel de "Cargando..." sirve igual haya materias, no haya, o falle — y
+// como alumno directamente no hay promesa, así que es un no-op inofensivo.
 function esperarMaterias() {
   return waitFor(() => expect(screen.queryByText('Cargando materias...')).not.toBeInTheDocument())
 }
@@ -92,37 +93,65 @@ describe('ProfilePage', () => {
     expect(screen.getAllByText('Alumno').length).toBeGreaterThan(0)
   })
 
-  it('cambia el título de las materias según el rol', async () => {
+  it('solo el docente ve la sección de materias', async () => {
     const docente = renderProfile({ viewRole: 'docente' })
     expect(await screen.findByText('Materias que das')).toBeInTheDocument()
     await esperarMaterias()
     docente.unmount()
 
     renderProfile({ viewRole: 'alumno' })
-    expect(await screen.findByText('Materias que te interesan')).toBeInTheDocument()
     await esperarMaterias()
+    expect(screen.queryByText('Materias que das')).not.toBeInTheDocument()
+    expect(screen.queryByText('Materias que te interesan')).not.toBeInTheDocument()
   })
 
-  it('lista las materias elegidas', async () => {
-    renderProfile()
-    expect(await screen.findByText('Matemática')).toBeInTheDocument()
-    expect(screen.getByText('Álgebra')).toBeInTheDocument()
-    // La 2 no está entre las subjectIds del usuario.
-    expect(screen.queryByText('Física')).not.toBeInTheDocument()
+  it('lista las materias que da y ofrece el resto para agregar', async () => {
+    renderProfile({ viewRole: 'docente' })
+    await screen.findByText('Matemática')
+
+    expect(screen.getByLabelText('Dejar de dar Matemática')).toBeInTheDocument()
+    expect(screen.getByLabelText('Dejar de dar Álgebra')).toBeInTheDocument()
+    // La 2 no está entre las subjectIds del usuario: aparece solo como
+    // candidata a agregar, así que hay que preguntar por el control y no por
+    // el texto (el texto está en las dos listas).
+    expect(screen.queryByLabelText('Dejar de dar Física')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Agregar Física')).toBeInTheDocument()
   })
 
-  it('avisa cuando no hay materias elegidas', async () => {
-    renderProfile({ user: { ...user, subjectIds: [] } })
+  it('avisa cuando el docente no eligió materias', async () => {
+    renderProfile({ viewRole: 'docente', user: { ...user, subjectIds: [] } })
     expect(await screen.findByText('Todavía no elegiste materias.')).toBeInTheDocument()
   })
 
-  it('como alumno las materias son de solo lectura', async () => {
+  it('como alumno no hay sección de materias', async () => {
     renderProfile({ viewRole: 'alumno' })
-    await screen.findByText('Matemática')
+    await esperarMaterias()
 
+    expect(screen.queryByText('Matemática')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Disponibilidad de/ })).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/Dejar de dar/)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/Agregar/)).not.toBeInTheDocument()
+    // Sin sección no hay catálogo que traer.
+    expect(fetchSubjects).not.toHaveBeenCalled()
+  })
+
+  it('pasar de alumno a docente trae el catálogo que no se pidió', async () => {
+    // El interruptor de rol cambia la prop SIN desmontar la pantalla, así que
+    // la carga que nos ahorramos al montar hay que dispararla acá.
+    const { rerender } = render(
+      <MemoryRouter>
+        <ProfilePage user={user} viewRole="alumno" />
+      </MemoryRouter>,
+    )
+    await esperarMaterias()
+    expect(fetchSubjects).not.toHaveBeenCalled()
+
+    rerender(
+      <MemoryRouter>
+        <ProfilePage user={user} viewRole="docente" />
+      </MemoryRouter>,
+    )
+    expect(await screen.findByLabelText('Dejar de dar Matemática')).toBeInTheDocument()
   })
 
   it('como docente cada materia linkea a su disponibilidad', async () => {
@@ -225,7 +254,7 @@ describe('ProfilePage', () => {
 
   it('avisa si falla la carga de materias', async () => {
     fetchSubjects.mockRejectedValue(new Error('No hay materias.'))
-    renderProfile()
+    renderProfile({ viewRole: 'docente' })
     expect(await screen.findByRole('alert')).toHaveTextContent('No hay materias.')
   })
 
@@ -240,6 +269,24 @@ describe('ProfilePage', () => {
     renderProfile({ user: { ...user, role: 'docente' }, viewRole: 'docente' })
     await esperarMaterias()
     expect(screen.queryByText(/pero tu cuenta/)).not.toBeInTheDocument()
+  })
+
+  it('tiene un botón para cerrar sesión que lleva al login', async () => {
+    const onLogout = vi.fn()
+    renderProfile({ onLogout })
+    await esperarMaterias()
+
+    const salir = screen.getByRole('link', { name: 'Cerrar sesión' })
+    expect(salir).toHaveAttribute('href', '/ingresar')
+
+    await userEvent.click(salir)
+    expect(onLogout).toHaveBeenCalledTimes(1)
+  })
+
+  it('el docente también puede cerrar sesión', async () => {
+    renderProfile({ viewRole: 'docente' })
+    await esperarMaterias()
+    expect(screen.getByRole('link', { name: 'Cerrar sesión' })).toBeInTheDocument()
   })
 
   it('sin usuario manda al login en vez de explotar', () => {

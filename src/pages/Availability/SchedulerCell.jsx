@@ -20,17 +20,22 @@ class SchedulerCell extends Component {
   shouldComponentUpdate(nextProps) {
     return (
       nextProps.state !== this.props.state ||
+      nextProps.invalid !== this.props.invalid ||
+      nextProps.pending !== this.props.pending ||
       nextProps.focusable !== this.props.focusable ||
       nextProps.label !== this.props.label
     )
   }
 
   render() {
-    const { dayKey, index, row, state, label, focusable, isHalf } = this.props
+    const { dayKey, index, row, state, pending, invalid, label, focusable, isHalf } = this.props
 
     const classNames = ['sched-cell']
     if (state === 'selected') classNames.push('is-selected')
     if (state === 'blocked') classNames.push('is-blocked')
+    if (state === 'removed') classNames.push('is-removed')
+    if (pending) classNames.push('is-pending')
+    if (invalid) classNames.push('is-invalid')
     if (isHalf) classNames.push('is-half')
 
     return (
@@ -43,6 +48,7 @@ class SchedulerCell extends Component {
         tabIndex={focusable ? 0 : -1}
         aria-pressed={state === 'selected'}
         aria-disabled={state === 'blocked' ? 'true' : undefined}
+        aria-invalid={invalid ? 'true' : undefined}
         aria-label={label}
       />
     )
@@ -51,6 +57,8 @@ class SchedulerCell extends Component {
 
 SchedulerCell.defaultProps = {
   state: 'free',
+  pending: false,
+  invalid: false,
   focusable: false,
   isHalf: false,
 }

@@ -70,6 +70,18 @@ class App extends Component {
     this.setState({ user })
   }
 
+  /**
+   * Cerrar sesión: se olvida del usuario. La navegación al login la hace el
+   * <Link> del perfil, así que acá solo se limpia el estado.
+   *
+   * OJO, mientras esté el andamio de prueba: refrescar vuelve a arrancar con
+   * MOCK_USER, así que la sesión cerrada no sobrevive un F5. Cuando el login
+   * sea de verdad eso se arregla solo.
+   */
+  handleLogout = () => {
+    this.setState({ user: null, viewRole: 'alumno', justRegisteredName: null })
+  }
+
   render() {
     const { user, justRegisteredName, viewRole } = this.state
 
@@ -109,6 +121,7 @@ class App extends Component {
                   user={user}
                   viewRole={viewRole}
                   onUserChange={this.handleUserChange}
+                  onLogout={this.handleLogout}
                 />
               }
             />

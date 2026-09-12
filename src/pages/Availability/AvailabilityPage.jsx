@@ -3,17 +3,25 @@ import { Link } from 'react-router-dom'
 import withRouter from '../../routes/withRouter.jsx'
 import WeekScheduler from './WeekScheduler.jsx'
 import Banner from '../../components/Banner.jsx'
-import { ClockIcon, SpinnerIcon } from '../../components/icons.jsx'
+import { ChevronLeftIcon, ClockIcon, SpinnerIcon } from '../../components/icons.jsx'
 import { fetchAvailabilityByTeacher, fetchSubjects, saveAvailability } from '../../api/client.js'
 import { MOCK_SUBJECTS } from '../../api/mocks.js'
 import {
   countSlots,
+  findShortRuns,
+  formatShortRunsError,
   formatSlotTotal,
   rangesToSlotIds,
+  runsToSlotIds,
   sameSlots,
   slotIdsToRanges,
 } from '../../utils/availability.js'
 import './AvailabilityPage.css'
+
+// Cuando no hay nada que marcar, SIEMPRE el mismo objeto: lo que sale de acá
+// baja hasta el shouldComponentUpdate de cada columna, y un Set nuevo en cada
+// render redibujaría las 7 columnas en cada paso del arrastre.
+const SIN_TRAMOS_CORTOS = { slotIds: null, runs: [], ids: new Set() }
 
 /**
  * Disponibilidad semanal de UNA materia: el docente pinta las medias horas en
@@ -51,10 +59,20 @@ class AvailabilityPage extends Component {
     saveError: null,
     saved: false,
     copyHint: null,
+    // "¿Ya intentó guardar y no se pudo?". Mientras está en false, pintar es
+    // silencioso: nadie quiere que le marquen en rojo una media hora que
+    // todavía está por completar. Una vez que dijo que no, el aviso se
+    // recalcula en cada render hasta que no quede ninguno.
+    showShortRuns: false,
   }
 
   // Mismo patrón que CalendarPage: descarta respuestas que llegaron tarde.
   fetchToken = 0
+
+  // Cache de un solo valor. La clave es la identidad del Set de slots, que
+  // sirve porque WeekScheduler nunca muta el que recibe: siempre emite uno
+  // nuevo (ver SIN_TRAMOS_CORTOS para por qué importa).
+  shortRunsCache = SIN_TRAMOS_CORTOS
 
   componentDidMount() {
     if (this.canEdit()) this.loadAvailability()
@@ -105,6 +123,18 @@ class AvailabilityPage extends Component {
     return !sameSlots(this.state.slotIds, this.state.savedSlotIds)
   }
 
+  /** { runs, ids } de los tramos que duran menos que una clase. */
+  getShortRuns() {
+    const { slotIds, showShortRuns } = this.state
+    if (!showShortRuns) return SIN_TRAMOS_CORTOS
+
+    if (this.shortRunsCache.slotIds !== slotIds) {
+      const runs = findShortRuns(slotIds)
+      this.shortRunsCache = { slotIds, runs, ids: runsToSlotIds(runs) }
+    }
+    return this.shortRunsCache
+  }
+
   getTitle() {
     const subject = this.getSubject()
     return subject ? `Disponibilidad de ${subject.name}` : 'Disponibilidad'
@@ -112,7 +142,13 @@ class AvailabilityPage extends Component {
 
   loadAvailability = () => {
     const token = ++this.fetchToken
-    this.setState({ loading: true, loadError: null, saved: false, copyHint: null })
+    this.setState({
+      loading: true,
+      loadError: null,
+      saved: false,
+      copyHint: null,
+      showShortRuns: false,
+    })
 
     Promise.all([fetchAvailabilityByTeacher(this.props.user.id), fetchSubjects()])
       .then(([bySubject, subjects]) => {
@@ -172,18 +208,32 @@ class AvailabilityPage extends Component {
       saveError: null,
       saved: false,
       copyHint: null,
+      showShortRuns: false,
     }))
   }
 
   handleSubmit = (event) => {
     event.preventDefault()
 
+    // La regla es del dominio (una clase dura 1 h), así que se corta acá y no
+    // se manda: el backend todavía no valida nada.
+    const cortos = findShortRuns(this.state.slotIds)
+    if (cortos.length > 0) {
+      this.setState({ showShortRuns: true, saveError: null, saved: false })
+      return
+    }
+
     const schedule = slotIdsToRanges(this.state.slotIds)
     this.setState({ saving: true, saveError: null, saved: false })
 
     saveAvailability(this.getSubjectId(), schedule)
       .then(() => {
-        this.setState((prev) => ({ saving: false, saved: true, savedSlotIds: prev.slotIds }))
+        this.setState((prev) => ({
+          saving: false,
+          saved: true,
+          savedSlotIds: prev.slotIds,
+          showShortRuns: false,
+        }))
       })
       .catch((error) => {
         this.setState({
@@ -264,11 +314,27 @@ class AvailabilityPage extends Component {
 
   renderScheduler() {
     const { slotIds, blockedBySlot, saving, saveError, saved, copyHint, loadError } = this.state
+    // El cartel se deriva en cada render y no se guarda en el estado: si se
+    // guardara, seguiría nombrando un horario que el docente ya arregló.
+    const { runs, ids } = this.getShortRuns()
+    const shortRunsError = formatShortRunsError(runs)
 
     return (
       <form className="availability-editor" onSubmit={this.handleSubmit}>
         <div className="availability-editor-head">
-          <h1 className="availability-title">{this.getTitle()}</h1>
+          <div className="availability-titlebar">
+            {/* Lo mismo que el ícono del reloj de la barra, pero a mano: desde
+                la grilla de una materia, volver al listado es el camino de
+                vuelta natural. */}
+            <Link
+              className="availability-back"
+              to="/disponibilidad"
+              aria-label="Volver a la lista de materias"
+            >
+              <ChevronLeftIcon />
+            </Link>
+            <h1 className="availability-title">{this.getTitle()}</h1>
+          </div>
           <p className="availability-hint">
             Pintá las medias horas en las que das clase. Podés arrastrar para marcar un rato entero
             y usar el botón de cada día para copiarlo a los demás.
@@ -277,12 +343,16 @@ class AvailabilityPage extends Component {
 
         {loadError ? <Banner type="danger">{loadError}</Banner> : null}
         {saveError ? <Banner type="danger">{saveError}</Banner> : null}
+        {shortRunsError ? <Banner type="danger">{shortRunsError}</Banner> : null}
         {saved ? <Banner type="success">Listo, guardamos tus horarios.</Banner> : null}
         {copyHint ? <Banner type="danger">{copyHint}</Banner> : null}
 
         <WeekScheduler
           value={slotIds}
           blockedBySlot={blockedBySlot}
+          savedIds={this.state.savedSlotIds}
+          invalidIds={ids}
+          shortRuns={runs}
           onChange={this.handleChangeSlots}
           onCopyResult={this.handleCopyResult}
           disabled={saving}
@@ -306,13 +376,6 @@ class AvailabilityPage extends Component {
             Guardar cambios
           </button>
         </div>
-
-        {/* Para poder verificar a mano lo que se va a mandar mientras no haya
-            backend. Cuando el endpoint exista esto se puede sacar. */}
-        <details className="availability-json">
-          <summary>Ver lo que se va a guardar</summary>
-          <pre>{JSON.stringify(slotIdsToRanges(slotIds), null, 2)}</pre>
-        </details>
       </form>
     )
   }
