@@ -15,6 +15,8 @@ const {
   updateProfile,
   fetchAvailabilityByTeacher,
   saveAvailability,
+  fetchAvailability,
+  fetchMyLessons,
 } = vi.hoisted(() => ({
   loginAccount: vi.fn(),
   fetchClasses: vi.fn(),
@@ -23,6 +25,8 @@ const {
   updateProfile: vi.fn(),
   fetchAvailabilityByTeacher: vi.fn(),
   saveAvailability: vi.fn(),
+  fetchAvailability: vi.fn(),
+  fetchMyLessons: vi.fn(),
 }))
 
 vi.mock('./api/client.js', () => ({
@@ -33,6 +37,8 @@ vi.mock('./api/client.js', () => ({
   updateProfile,
   fetchAvailabilityByTeacher,
   saveAvailability,
+  fetchAvailability,
+  fetchMyLessons,
 }))
 
 const user = {
@@ -57,6 +63,8 @@ describe('App', () => {
     updateProfile.mockReset().mockImplementation((payload) => Promise.resolve({ user: payload }))
     fetchAvailabilityByTeacher.mockReset().mockResolvedValue({})
     saveAvailability.mockReset().mockResolvedValue({})
+    fetchAvailability.mockReset().mockResolvedValue([])
+    fetchMyLessons.mockReset().mockResolvedValue([])
   })
 
   async function loguearse() {

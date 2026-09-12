@@ -3,14 +3,27 @@ import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import AvailabilityPage from './AvailabilityPage.jsx'
 
-const { fetchAvailabilityByTeacher, fetchSubjects, saveAvailability } = vi.hoisted(() => ({
+// Ojo: vi.mock con factory reemplaza el módulo ENTERO, así que todo lo que
+// importe cualquier pantalla de esta ruta tiene que estar acá — la del alumno
+// pide fetchAvailability y fetchMyLessons.
+const {
+  fetchAvailability,
+  fetchAvailabilityByTeacher,
+  fetchMyLessons,
+  fetchSubjects,
+  saveAvailability,
+} = vi.hoisted(() => ({
+  fetchAvailability: vi.fn(),
   fetchAvailabilityByTeacher: vi.fn(),
+  fetchMyLessons: vi.fn(),
   fetchSubjects: vi.fn(),
   saveAvailability: vi.fn(),
 }))
 
 vi.mock('../../api/client.js', () => ({
+  fetchAvailability,
   fetchAvailabilityByTeacher,
+  fetchMyLessons,
   fetchSubjects,
   saveAvailability,
 }))
@@ -22,6 +35,7 @@ const MATERIAS = [
 ]
 
 const docente = { id: 1, nombre: 'Agustín', role: 'docente', subjectIds: [1, 3, 5] }
+const alumno = { id: 7, nombre: 'Sofía', role: 'alumno', subjectIds: [] }
 
 function renderAt(path, props) {
   return render(
@@ -41,44 +55,67 @@ function esperarCarga() {
 }
 
 describe('AvailabilityPage — vista de alumno', () => {
-  // El alumno no dispara ninguna carga: la pantalla sigue siendo el
-  // placeholder de siempre.
-  it('dice de qué materia es cuando viene en la URL', () => {
-    renderAt('/disponibilidad/1')
-    expect(screen.getByText('Disponibilidad de Matemática')).toBeInTheDocument()
+  beforeEach(() => {
+    fetchSubjects.mockReset().mockResolvedValue(MATERIAS)
+    fetchAvailability.mockReset().mockResolvedValue([])
+    fetchMyLessons.mockReset().mockResolvedValue([])
   })
 
-  it('sin materia muestra el título genérico', () => {
-    renderAt('/disponibilidad')
-    expect(screen.getByText('Disponibilidad')).toBeInTheDocument()
-    expect(screen.queryByText('No encontramos esa materia.')).not.toBeInTheDocument()
+  function esperarTablero() {
+    return waitFor(() =>
+      expect(screen.queryByText('Buscando horarios...')).not.toBeInTheDocument(),
+    )
+  }
+
+  it('muestra el tablero para reservar, no el placeholder', async () => {
+    renderAt('/disponibilidad', { viewRole: 'alumno', user: alumno })
+    await esperarTablero()
+
+    expect(screen.getByText('Días')).toBeInTheDocument()
+    expect(screen.queryByText('Todavía está en construcción.')).not.toBeInTheDocument()
   })
 
-  it('avisa si la materia no existe', () => {
-    renderAt('/disponibilidad/999')
-    expect(screen.getByText('No encontramos esa materia.')).toBeInTheDocument()
+  it('pide la disponibilidad del rango que muestra la grilla', async () => {
+    renderAt('/disponibilidad', { viewRole: 'alumno', user: alumno })
+    await esperarTablero()
+
+    expect(fetchAvailability).toHaveBeenCalledTimes(1)
+    const { from, to } = fetchAvailability.mock.calls[0][0]
+    expect(from < to).toBe(true)
   })
 
-  it('avisa si el id no es un número', () => {
-    renderAt('/disponibilidad/abc')
-    expect(screen.getByText('No encontramos esa materia.')).toBeInTheDocument()
+  it('sin usuario no pide las clases propias', async () => {
+    // Las rutas no tienen portero: un alumno deslogueado igual puede mirar.
+    renderAt('/disponibilidad', { viewRole: 'alumno', user: null })
+    await esperarTablero()
+
+    expect(fetchAvailability).toHaveBeenCalled()
+    expect(fetchMyLessons).not.toHaveBeenCalled()
   })
 
-  it('avisa que todavía no hace nada', () => {
-    renderAt('/disponibilidad', { viewRole: 'alumno' })
-    expect(screen.getByText('Todavía está en construcción.')).toBeInTheDocument()
-    expect(screen.getByText(/reservar tu clase/)).toBeInTheDocument()
+  it('la materia de la URL queda elegida', async () => {
+    renderAt('/disponibilidad/1', { viewRole: 'alumno', user: alumno })
+    await esperarTablero()
+
+    expect(await screen.findByRole('button', { name: 'Matemática' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
   })
 
-  it('no pide datos', () => {
-    renderAt('/disponibilidad/1', { viewRole: 'alumno' })
-    expect(fetchAvailabilityByTeacher).not.toHaveBeenCalled()
+  it('avisa si falla la carga', async () => {
+    fetchAvailability.mockRejectedValue(new Error('Se cayó todo.'))
+    renderAt('/disponibilidad', { viewRole: 'alumno', user: alumno })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Se cayó todo.')
   })
 })
 
 describe('AvailabilityPage — vista de docente', () => {
   beforeEach(() => {
     fetchSubjects.mockReset().mockResolvedValue(MATERIAS)
+    fetchAvailability.mockReset().mockResolvedValue([])
+    fetchMyLessons.mockReset().mockResolvedValue([])
     saveAvailability.mockReset().mockResolvedValue({})
     fetchAvailabilityByTeacher.mockReset().mockResolvedValue({
       1: { lunes: [{ start: '09:00', end: '11:00' }] },

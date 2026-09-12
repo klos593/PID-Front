@@ -13,7 +13,8 @@ import './MonthGrid.css'
  */
 class MonthGrid extends Component {
   render() {
-    const { weeks, classesByDate, selectedIso, onSelectDay, maxVisibleEvents, gridRef } = this.props
+    const { weeks, classesByDate, freeByDate, selectedIso, onSelectDay } = this.props
+    const { maxVisibleEvents, gridRef } = this.props
 
     return (
       <div className="month-grid">
@@ -32,6 +33,7 @@ class MonthGrid extends Component {
                   key={cell.iso}
                   cell={cell}
                   events={classesByDate[cell.iso] || []}
+                  freeCount={freeByDate[cell.iso] || 0}
                   maxVisible={maxVisibleEvents}
                   selected={cell.iso === selectedIso}
                   onSelect={onSelectDay(cell.iso)}
@@ -47,6 +49,7 @@ class MonthGrid extends Component {
 
 MonthGrid.defaultProps = {
   classesByDate: {},
+  freeByDate: {},
 }
 
 export default MonthGrid

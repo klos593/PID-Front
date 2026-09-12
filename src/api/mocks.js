@@ -6,7 +6,11 @@
 // Cuando existan los endpoints reales este archivo se borra entero — ver el
 // seam al final de client.js.
 
-import { addOneHour, mondayIndex, toISODate } from '../utils/calendar.js'
+import { addDays, addOneHour, mondayIndex, toISODate } from '../utils/calendar.js'
+import {
+  expandAvailability,
+  subtractBookedLessons,
+} from '../utils/booking.js'
 
 export const MOCK_DELAY_MS = 250
 
@@ -145,6 +149,14 @@ export function getMockClasses(from, to, status) {
     result.push(...getMonthClasses(cursor.getFullYear(), cursor.getMonth()))
   }
 
+  // Las clases del alumno se suman acá para que el calendario y la pantalla de
+  // reservas coincidan al menos en esas — que son justo las que nombra el
+  // aviso de superposición. Va afuera del cache a propósito: el cache guarda
+  // lo generado por mes y esto se arma relativo a hoy.
+  // TODO(alumno): unificar de verdad cuando la clase tenga studentId y exista
+  // GET /api/classes?student=me; hoy las generadas no tienen dueño.
+  result.push(...getMockStudentLessons(from, to))
+
   return result.filter(
     (item) => item.date >= from && item.date <= to && (!status || item.status === status),
   )
@@ -157,19 +169,85 @@ export function getMockClasses(from, to, status) {
 // después entrar a Álgebra tiene que mostrar esas horas ocupadas. Con datos de
 // mentira inmutables eso no se ve nunca.
 //
+// AHORA CON DOCENTE: mockAvailability[docenteId][materiaId] = horario semanal.
+// Antes era { [materiaId]: horario } y pertenecía implícitamente al único
+// docente logueado — con eso no se podía contestar "quién está libre el
+// martes", que es toda la pantalla del alumno.
+//
 // Se pierde al refrescar, igual que la sesión de App.jsx. No hay backend.
-// Viene sembrado para las materias 1 y 5 (las dos están en MOCK_USER), así que
-// abrir la 3 muestra horarios ocupados desde la primera carga, sin tener que
-// guardar nada antes.
+// Cada materia sembrada está adentro de los subjectIds de su docente (hay un
+// test que lo verifica).
 const mockAvailability = {
-  1: {
-    lunes: [{ start: '09:00', end: '11:00' }],
-    miercoles: [{ start: '18:00', end: '20:00' }],
+  // 1 — Agustín Klos, el usuario logueado (materias 1, 3, 5).
+  [MOCK_USER.id]: {
+    1: {
+      lunes: [{ start: '09:00', end: '11:00' }],
+      miercoles: [{ start: '18:00', end: '20:00' }],
+    },
+    5: {
+      viernes: [{ start: '14:00', end: '15:00' }],
+    },
   },
-  5: {
-    viernes: [{ start: '14:00', end: '15:00' }],
+  // 2 — Laura Gómez (1, 3).
+  2: {
+    1: {
+      lunes: [
+        { start: '13:00', end: '15:30' },
+        { start: '16:00', end: '17:00' },
+      ],
+      miercoles: [{ start: '09:00', end: '12:00' }],
+      jueves: [
+        { start: '13:00', end: '15:30' },
+        { start: '16:00', end: '17:00' },
+      ],
+    },
+    3: {
+      martes: [{ start: '08:30', end: '10:30' }],
+      viernes: [{ start: '15:00', end: '18:00' }],
+    },
+  },
+  // 3 — Martín Sosa (5, 6).
+  3: {
+    5: {
+      lunes: [{ start: '18:00', end: '21:00' }],
+      miercoles: [{ start: '14:00', end: '17:00' }],
+      sabado: [{ start: '10:00', end: '13:00' }],
+    },
+    6: {
+      martes: [{ start: '08:00', end: '11:00' }],
+      jueves: [{ start: '16:00', end: '19:00' }],
+    },
+  },
+  // 4 — Carla Benítez (2, 7).
+  4: {
+    2: {
+      lunes: [{ start: '12:00', end: '17:00' }],
+      viernes: [{ start: '09:00', end: '12:00' }],
+    },
+    7: {
+      martes: [{ start: '14:00', end: '16:00' }],
+      jueves: [{ start: '10:00', end: '12:00' }],
+    },
   },
 }
+
+/**
+ * Todos los docentes que un alumno puede ver, con sus materias.
+ *
+ * MOCK_USER no está en MOCK_TEACHERS, así que sin esto los horarios que el
+ * docente logueado guarda en su propia pantalla no aparecerían nunca del lado
+ * del alumno — y eso es justo lo que hace la función demostrable de punta a
+ * punta. ANDAMIO DE PRUEBA: el backend de verdad se va a excluir a sí mismo.
+ */
+export const MOCK_TEACHER_DIRECTORY = [
+  {
+    id: MOCK_USER.id,
+    nombre: MOCK_USER.nombre,
+    apellido: MOCK_USER.apellido,
+    subjectIds: MOCK_USER.subjectIds,
+  },
+  ...MOCK_TEACHERS,
+]
 
 /**
  * Copia profunda. Devolver el objeto de adentro dejaría que una pantalla
@@ -183,22 +261,160 @@ function cloneSchedule(schedule) {
   return copy
 }
 
+/**
+ * El horario del docente LOGUEADO para una materia. Mantiene la firma de
+ * antes: el PUT de verdad saca el docente de la sesión, así que agregarle un
+ * teacherId sería modelar un endpoint que no vamos a construir.
+ */
 export function getMockAvailability(subjectId) {
-  return cloneSchedule(mockAvailability[subjectId])
+  return cloneSchedule(mockAvailability[MOCK_USER.id]?.[subjectId])
 }
 
-/** Todas las materias del docente de una: { [subjectId]: horario }. */
-export function getMockAvailabilityByTeacher() {
+/** Todas las materias de UN docente: { [subjectId]: horario }. */
+export function getMockAvailabilityByTeacher(teacherId) {
   const all = {}
-  for (const [subjectId, schedule] of Object.entries(mockAvailability)) {
+  for (const [subjectId, schedule] of Object.entries(mockAvailability[teacherId] || {})) {
     all[subjectId] = cloneSchedule(schedule)
   }
   return all
 }
 
 export function setMockAvailability(subjectId, schedule) {
-  mockAvailability[subjectId] = cloneSchedule(schedule)
+  if (!mockAvailability[MOCK_USER.id]) mockAvailability[MOCK_USER.id] = {}
+  mockAvailability[MOCK_USER.id][subjectId] = cloneSchedule(schedule)
   return getMockAvailability(subjectId)
+}
+
+/**
+ * El store aplanado, que es lo que necesita expandAvailability: una entrada
+ * por (docente, materia) con su plantilla semanal y los nombres ya resueltos.
+ * Así booking.js nunca se entera de cómo está anidado esto.
+ */
+export function getMockAvailabilityEntries() {
+  const entries = []
+
+  for (const teacher of MOCK_TEACHER_DIRECTORY) {
+    const porMateria = mockAvailability[teacher.id] || {}
+
+    for (const [subjectId, schedule] of Object.entries(porMateria)) {
+      const subject = MOCK_SUBJECTS.find((item) => item.id === Number(subjectId))
+      if (!subject) continue
+
+      entries.push({
+        teacherId: teacher.id,
+        teacherName: `${teacher.nombre} ${teacher.apellido}`,
+        subjectId: subject.id,
+        subjectName: subject.name,
+        schedule: cloneSchedule(schedule),
+      })
+    }
+  }
+
+  return entries
+}
+
+// --- Las clases que YA reservó el alumno logueado ---------------------------
+//
+// MOCK_STUDENTS son tres nombres sueltos sin id y `studentName` es texto de
+// pantalla: hoy NO hay forma de decir "las clases de ESTE alumno". Esta lista
+// es esa respuesta hasta que exista studentId.
+//
+// Mutable igual que mockAvailability y por el mismo motivo: la ronda 2 va a
+// empujar acá al reservar, y el aviso de superposición tiene que cambiar sin
+// refrescar.
+const MOCK_STUDENT_NAME = 'Sofía Ramírez'
+
+/**
+ * El próximo lunes/martes/… contando hoy. Sembrar por día de semana y no por
+ * fecha fija es lo que hace que la superposición caiga SIEMPRE encima de la
+ * plantilla semanal, sea hoy el día que sea.
+ */
+function nextWeekdayIso(dayIndex) {
+  const today = new Date()
+  return toISODate(addDays(today, (dayIndex - mondayIndex(today) + 7) % 7))
+}
+
+// Cada una está elegida para que se pueda ver un estado distinto en pantalla:
+//   - lunes 14:00 con Laura  -> se RESTA de su disponibilidad (no es un aviso)
+//     y además choca con la de Carla, que ese día está libre de 12 a 17: esa
+//     tarjeta muestra el aviso gris y SIGUE siendo reservable.
+//   - martes 09:00 con Martín -> otra resta, en el medio de su rango.
+//   - martes 09:00 también pisa el Álgebra de Laura (08:30–10:30), que queda
+//     partida en dos pedazos de media hora: esa tarjeta NO se puede reservar.
+const mockStudentLessons = [
+  {
+    id: 'sl-1',
+    dayIndex: 0,
+    startTime: '14:00',
+    endTime: '15:00',
+    subjectId: 1,
+    subjectName: 'Matemática',
+    teacherId: 2,
+    teacherName: 'Laura Gómez',
+  },
+  {
+    id: 'sl-2',
+    dayIndex: 1,
+    startTime: '09:00',
+    endTime: '10:00',
+    subjectId: 6,
+    subjectName: 'Base de Datos',
+    teacherId: 3,
+    teacherName: 'Martín Sosa',
+  },
+  {
+    id: 'sl-3',
+    dayIndex: 4,
+    startTime: '10:00',
+    endTime: '11:00',
+    subjectId: 2,
+    subjectName: 'Física',
+    teacherId: 4,
+    teacherName: 'Carla Benítez',
+  },
+]
+
+/** Las clases del alumno con fecha de verdad, dentro del rango pedido. */
+export function getMockStudentLessons(from, to) {
+  return mockStudentLessons
+    .map((lesson) => ({
+      ...lesson,
+      // Las sembradas van por día de semana; las que se reservan ya tienen su
+      // fecha concreta.
+      date: lesson.date || nextWeekdayIso(lesson.dayIndex),
+      status: 'reservada',
+      studentName: MOCK_STUDENT_NAME,
+    }))
+    .filter((lesson) => lesson.date >= from && lesson.date <= to)
+}
+
+/**
+ * Reservar: suma la clase a las del alumno. Como getMockAvailabilitySlots
+ * resta estas clases, el horario desaparece solo de la disponibilidad del
+ * docente en la próxima carga — que es la regla del dominio (ver CLAUDE.md).
+ *
+ * Se guarda con `date` de verdad y no con dayIndex: una reserva es de un día
+ * concreto, no de todos los lunes.
+ */
+export function addMockStudentLesson(lesson) {
+  mockStudentLessons.push({ ...lesson, id: lesson.id || `sl-${Date.now()}` })
+  return lesson
+}
+
+/**
+ * La disponibilidad con FECHA y ya neta de lo reservado — lo que va a devolver
+ * GET /api/availability. Acá el mock hace el trabajo que va a hacer el
+ * backend: guarda plantillas semanales y las proyecta sobre el rango que pide
+ * la pantalla.
+ *
+ * No se restan las clases sueltas que genera buildMonthClasses: son ruido de
+ * otro generador (un sorteo `seed % 3` que no sale de la disponibilidad de
+ * nadie), y dejarlas comerse las plantillas haría que la pantalla se viera
+ * rota al azar en cada carga.
+ */
+export function getMockAvailabilitySlots(from, to) {
+  const rows = expandAvailability(getMockAvailabilityEntries(), from, to)
+  return subtractBookedLessons(rows, getMockStudentLessons(from, to))
 }
 
 /** Simula la latencia de red para que se vean los estados de carga. */

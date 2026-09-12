@@ -5,7 +5,7 @@ import WeekScheduler from './WeekScheduler.jsx'
 import Banner from '../../components/Banner.jsx'
 import { ChevronLeftIcon, ClockIcon, SpinnerIcon } from '../../components/icons.jsx'
 import { fetchAvailabilityByTeacher, fetchSubjects, saveAvailability } from '../../api/client.js'
-import { MOCK_SUBJECTS } from '../../api/mocks.js'
+import BookingBoard from '../Booking/BookingBoard.jsx'
 import {
   countSlots,
   findShortRuns,
@@ -38,9 +38,9 @@ const SIN_TRAMOS_CORTOS = { slotIds: null, runs: [], ids: new Set() }
  * todas las materias de una sola vez (fetchAvailabilityByTeacher) y no solo la
  * que se está editando — los horarios bloqueados son la unión de las otras.
  *
- * La vista de alumno sigue siendo el placeholder de antes a propósito: esta
- * pantalla es del docente, y la del alumno (ver turnos libres y reservar) es
- * otra cosa que se hace después.
+ * Mirando como alumno, la misma ruta muestra otra cosa: el tablero para
+ * buscar horarios libres y reservar (ver pages/Booking). Por eso el primer
+ * guard de renderBody es el rol y no el usuario.
  */
 class AvailabilityPage extends Component {
   state = {
@@ -244,30 +244,21 @@ class AvailabilityPage extends Component {
   }
 
   /**
-   * El placeholder de siempre: la pantalla del alumno se hace después. Resuelve
-   * la materia contra la lista de mentira y no contra el catálogo cargado
-   * porque el alumno no dispara ninguna carga — no tiene nada que editar.
-   * TODO: cuando esta pantalla haga algo, traer la materia con fetchSubjects().
+   * La pantalla del alumno: buscar horarios libres y (desde la ronda 2)
+   * reservar. Va PRIMERO en renderBody y sin pedir usuario, igual que el
+   * placeholder que reemplaza — las rutas de la app no tienen portero.
+   *
+   * Se le pasa `router` en vez de envolver BookingBoard en otro withRouter:
+   * con un puente por ruta alcanza, y así sigue siendo obvio que los hooks
+   * viven en un solo archivo.
    */
-  renderStudentPlaceholder() {
-    const { materiaId } = this.props.router.params
-    const id = this.getSubjectId()
-    const subject = id === null ? null : MOCK_SUBJECTS.find((item) => item.id === id) || null
-
+  renderStudentBooking() {
     return (
-      <div className="availability-empty">
-        <ClockIcon />
-        <h1 className="availability-title">
-          {subject ? `Disponibilidad de ${subject.name}` : 'Disponibilidad'}
-        </h1>
-        {materiaId && !subject ? (
-          <p className="availability-warning">No encontramos esa materia.</p>
-        ) : null}
-        <p className="availability-hint">
-          Acá vas a poder ver los horarios libres de cada docente y reservar tu clase.
-        </p>
-        <p className="availability-hint">Todavía está en construcción.</p>
-      </div>
+      <BookingBoard
+        router={this.props.router}
+        user={this.props.user}
+        subjectId={this.getSubjectId()}
+      />
     )
   }
 
@@ -386,7 +377,7 @@ class AvailabilityPage extends Component {
     // La vista de alumno va PRIMERO y no pide usuario: es informativa y las
     // rutas de la app no tienen portero (ver App.jsx). El login solo hace
     // falta para editar.
-    if (viewRole !== 'docente') return this.renderStudentPlaceholder()
+    if (viewRole !== 'docente') return this.renderStudentBooking()
 
     if (!user) {
       return (
@@ -427,7 +418,15 @@ class AvailabilityPage extends Component {
   }
 
   render() {
-    return <div className="availability-page">{this.renderBody()}</div>
+    // El tablero del alumno se clava al alto de la pantalla (el calendario
+    // ocupa todo lo que hay y las tarjetas scrollean adentro); las otras
+    // vistas de esta ruta son documentos que crecen para abajo y scrollean en
+    // .app-main.
+    const esTablero = this.props.viewRole !== 'docente'
+
+    return (
+      <div className={`availability-page ${esTablero ? 'is-board' : ''}`}>{this.renderBody()}</div>
+    )
   }
 }
 

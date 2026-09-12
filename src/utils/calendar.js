@@ -20,6 +20,12 @@ const DAY_LONG_FORMAT = new Intl.DateTimeFormat('es-AR', {
   day: 'numeric',
   month: 'long',
 })
+const DAY_FULL_FORMAT = new Intl.DateTimeFormat('es-AR', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+})
 
 function capitalize(text) {
   return text.charAt(0).toUpperCase() + text.slice(1)
@@ -80,6 +86,11 @@ export function formatMonthTitle(date) {
 /** 'Lunes 14 de septiembre' — para el encabezado del día seleccionado. */
 export function formatDayLong(date) {
   return capitalize(DAY_LONG_FORMAT.format(date))
+}
+
+/** 'Lunes 14 de septiembre de 2026' — con año, para confirmar una reserva. */
+export function formatDayLongWithYear(date) {
+  return capitalize(DAY_FULL_FORMAT.format(date))
 }
 
 /** Las clases duran 1 hora fija (ver CLAUDE.md). '16:30' -> '17:30'. */
