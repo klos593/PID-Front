@@ -20,12 +20,21 @@ export function passwordRules(password) {
     hasLower: /[a-z]/.test(password),
     hasUpper: /[A-Z]/.test(password),
     hasNumber: /\d/.test(password),
+    // Igual que el backend: cualquier cosa que no sea letra, dígito o
+    // espacio cuenta como carácter especial.
+    hasSpecial: /[^A-Za-z0-9\s]/.test(password),
   }
 }
 
 export function isValidPassword(password) {
   const rules = passwordRules(password)
-  return rules.minLength && rules.hasLower && rules.hasUpper && rules.hasNumber
+  return (
+    rules.minLength &&
+    rules.hasLower &&
+    rules.hasUpper &&
+    rules.hasNumber &&
+    rules.hasSpecial
+  )
 }
 
 export function isNonEmptyName(value) {
