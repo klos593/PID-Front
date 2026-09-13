@@ -56,7 +56,7 @@ function go(path) {
 
 describe('App', () => {
   beforeEach(() => {
-    loginAccount.mockReset().mockResolvedValue({ user })
+    loginAccount.mockReset().mockResolvedValue(user)
     fetchClasses.mockReset().mockResolvedValue([])
     fetchSubjects.mockReset().mockResolvedValue([])
     registerAccount.mockReset().mockResolvedValue({ user })
@@ -151,7 +151,7 @@ describe('App', () => {
   it('desde el perfil como docente se llega a la disponibilidad de la materia', async () => {
     // El usuario tiene que DAR la materia para que aparezca la fila con el
     // botón: si no la da, cae en el bloque de "Agregar materia".
-    loginAccount.mockResolvedValue({ user: { ...user, subjectIds: [1] } })
+    loginAccount.mockResolvedValue({ ...user, subjectIds: [1] })
     fetchSubjects.mockResolvedValue([{ id: 1, name: 'Matemática' }])
     go('/ingresar')
     render(<App />)

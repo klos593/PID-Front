@@ -6,12 +6,16 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Redirige /api/* al backend de Fastify, así el browser solo habla con
+    // :5173: no hace falta configurar CORS y la cookie de sesión queda
+    // same-origin en dev, igual que detrás de nginx en producción.
     proxy: {
-      // client.js pega todo a rutas relativas /api — acá las redirigimos al
-      // backend de Fastify. `backend` es el nombre del servicio en
-      // docker-compose.dev.yml; corriendo `npm run dev` fuera de Docker hay
-      // que apuntar a http://127.0.0.1:4000.
-      '/api': { target: 'http://backend:4000', changeOrigin: true },
+      // VITE_BACKEND_URL permite que docker-compose apunte esto al servicio
+      // `backend` en lugar de 127.0.0.1 cuando corre dentro de la red.
+      '/api': {
+        target: process.env.VITE_BACKEND_URL || 'http://127.0.0.1:4000',
+        changeOrigin: true,
+      },
     },
   },
   test: {

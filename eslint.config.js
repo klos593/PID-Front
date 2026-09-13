@@ -26,4 +26,12 @@ export default defineConfig([
       globals: globals.vitest,
     },
   },
+  {
+    // vite.config.js lo ejecuta Node, no el browser: ahí `process` existe
+    // (lo usa VITE_BACKEND_URL para apuntar el proxy al servicio de compose).
+    files: ['vite.config.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 ])

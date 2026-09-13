@@ -3,10 +3,11 @@
 // propio ni comportamiento que valga la pena encapsular en una clase, así
 // que queda como funciones simples.
 //
-// OJO: el backend todavía es un stub (PID-Back solo responde GET /), así que
-// algunas de estas funciones devuelven datos de mentira por ahora. Están
-// todas marcadas con "MOCK" y el `request` real queda comentado al lado:
-// conectar cada una es borrar una línea y descomentar la otra.
+// OJO: el backend todavía es un stub para la mayoría de las rutas (PID-Back
+// solo tiene auth andando), así que varias de estas funciones devuelven
+// datos de mentira por ahora. Están todas marcadas con "MOCK" y el `request`
+// real queda comentado al lado: conectar cada una es borrar una línea y
+// descomentar la otra.
 
 import {
   addMockStudentLesson,
@@ -14,18 +15,49 @@ import {
   getMockAvailabilitySlots,
   getMockStudentLessons,
   getMockClasses,
-  MOCK_SUBJECTS,
   MOCK_TEACHERS,
-  MOCK_USER,
   mockResponse,
   setMockAvailability,
 } from './mocks.js'
 
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
+// El backend exige un token CSRF (header x-csrf-token) en cualquier POST de
+// auth. Se pide una sola vez y se cachea en memoria — si expira o el
+// backend lo rechaza, request() reintenta una vez pidiendo uno nuevo.
+let csrfTokenPromise = null
+
+function fetchCsrfToken() {
+  if (!csrfTokenPromise) {
+    csrfTokenPromise = fetch('/api/auth/csrf-token', {
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((res) => res.json())
+      .then((data) => data.csrfToken)
+      .catch((err) => {
+        csrfTokenPromise = null
+        throw err
+      })
+  }
+  return csrfTokenPromise
+}
+
 async function request(path, options = {}) {
-  const response = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
+  const method = (options.method || 'GET').toUpperCase()
+  const headers = { 'Content-Type': 'application/json', ...options.headers }
+
+  if (!SAFE_METHODS.has(method)) {
+    headers['x-csrf-token'] = await fetchCsrfToken()
+  }
+
+  let response = await fetch(path, { ...options, method, headers })
+
+  if (response.status === 403 && !SAFE_METHODS.has(method)) {
+    // Token vencido o inválido — se pide uno nuevo y se reintenta una vez.
+    csrfTokenPromise = null
+    headers['x-csrf-token'] = await fetchCsrfToken()
+    response = await fetch(path, { ...options, method, headers })
+  }
 
   let data = null
   try {
@@ -46,11 +78,7 @@ async function request(path, options = {}) {
 }
 
 export function fetchSubjects() {
-  // MOCK: /api/subjects todavía no existe en PID-Back. La lista de materias
-  // es fija y la define la base, así que la de mentira alcanza para armar las
-  // pantallas (y hasta acá el registro fallaba en el paso 3 por esto).
-  return mockResponse(MOCK_SUBJECTS)
-  // return request('/api/subjects')
+  return request('/api/subjects')
 }
 
 export function checkEmailAvailability(email) {
@@ -65,14 +93,18 @@ export function registerAccount(payload) {
 }
 
 export function loginAccount(credentials) {
-  // MOCK: /api/auth/login todavía no existe, así que aceptamos cualquier
-  // credencial y devolvemos el usuario de prueba. Sin esto no hay forma de
-  // pasar del login y llegar al calendario.
-  return mockResponse({ user: { ...MOCK_USER, email: credentials.email } })
-  // return request('/api/auth/login', {
-  //   method: 'POST',
-  //   body: JSON.stringify(credentials),
-  // })
+  return request('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  })
+}
+
+export function logoutAccount() {
+  return request('/api/auth/logout', { method: 'POST' })
+}
+
+export function fetchCurrentUser() {
+  return request('/api/auth/me')
 }
 
 export function fetchClasses({ from, to, status }) {

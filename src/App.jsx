@@ -42,8 +42,7 @@ class App extends Component {
     viewRole: MOCK_USER.role,
   }
 
-  handleLoginSuccess = (result) => {
-    const user = result?.user ?? null
+  handleLoginSuccess = (user) => {
     this.setState({
       user,
       justRegisteredName: null,

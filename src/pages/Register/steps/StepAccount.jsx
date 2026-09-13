@@ -26,7 +26,7 @@ class StepAccount extends Component {
     const password = this.props.values.password || ''
     if (!password) return 'La contraseña es obligatoria.'
     if (!isValidPassword(password)) {
-      return 'Debe tener al menos 8 caracteres, con letras y números.'
+      return 'Debe tener al menos 10 caracteres, con mayúsculas, minúsculas, números y un carácter especial.'
     }
     return null
   }
@@ -104,7 +104,7 @@ class StepAccount extends Component {
           onBlur={this.handleBlur('password')}
           touched={touched.password}
           error={this.getPasswordError()}
-          hint="Mínimo 8 caracteres, con letras y números."
+          hint="Mínimo 10 caracteres, con mayúsculas, minúsculas, números y un carácter especial."
         />
         <PasswordInput
           label="Repetir contraseña"

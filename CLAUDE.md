@@ -7,6 +7,7 @@ Shared context for Claude Code across the team. This file lives at the root of *
 - Professor's constraint: no managed/PaaS platforms — the app must run via Docker and be continuously deployed so it can be reviewed at any time.
 - Three repos, cloned side by side inside a parent `Proyecto/` folder: `PID-Front` (this one), `PID-Back`, `PID-Infra`.
 - Team works across Apple Silicon Macs (M1/M2) and at least one Windows desktop — keep cross-platform tooling in mind (line endings, shell scripts, etc.).
+- **The app is in Spanish.** The team and its users are Argentinian, so everything a user can read is rioplatense Spanish (voseo: "Elegí", "tenés") — UI copy, validation messages, API error `message` strings, `aria-label`s and placeholders, dates (`Intl` with the `es-AR` locale) and `<title>`. `index.html` declares `lang="es-AR"`; leaving it at the Vite default `en` makes screen readers pronounce Spanish with English phonetics. There is no i18n layer and no plan for one — write the Spanish string directly, don't add translation keys.
 
 ## App concept
 A web app (responsive — must work well on phone too) that connects students and teachers.
