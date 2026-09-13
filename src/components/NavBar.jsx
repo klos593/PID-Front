@@ -2,7 +2,6 @@ import { Component } from 'react'
 import { NavLink } from 'react-router-dom'
 import SearchBar from './SearchBar.jsx'
 import ThemeToggle from './ThemeToggle.jsx'
-import RoleToggle from './RoleToggle.jsx'
 import { CalendarIcon, ClockIcon, UserIcon } from './icons.jsx'
 import './NavBar.css'
 
@@ -11,9 +10,6 @@ import './NavBar.css'
  * derecha, los dos interruptores (tema y rol) más disponibilidad y
  * calendario. Se monta una sola vez desde AppLayout, así que navegar entre
  * pantallas no la remonta (el texto del buscador no se pierde).
- *
- * Ojo: el interruptor de rol es un andamio de prueba y no va a producción
- * (ver RoleToggle.jsx), así que en algún momento vuelven a ser cuatro botones.
  *
  * Usa <NavLink>, que es un componente común y no un hook, así que no hace
  * falta ningún puente para poder seguir siendo un class component. El
@@ -24,7 +20,6 @@ class NavBar extends Component {
   getLinkClass = ({ isActive }) => `navbar-icon-btn ${isActive ? 'is-active' : ''}`
 
   render() {
-    const { viewRole, onToggleRole } = this.props
 
     return (
       <header className="navbar">
@@ -32,11 +27,8 @@ class NavBar extends Component {
           <NavLink to="/perfil" className={this.getLinkClass} aria-label="Mi perfil">
             <UserIcon />
           </NavLink>
-          <SearchBar />
           <ThemeToggle />
-          <RoleToggle role={viewRole} onToggle={onToggleRole} />
-          {/* Sin `end`: queremos que quede activo también en
-              /disponibilidad/:materiaId. */}
+          <SearchBar />
           <NavLink to="/disponibilidad" className={this.getLinkClass} aria-label="Disponibilidad">
             <ClockIcon />
           </NavLink>
