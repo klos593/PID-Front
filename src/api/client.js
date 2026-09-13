@@ -3,20 +3,7 @@
 // propio ni comportamiento que valga la pena encapsular en una clase, así
 // que queda como funciones simples.
 //
-// OJO: el backend todavía es un stub para la mayoría de las rutas (PID-Back
-// solo tiene auth andando), así que varias de estas funciones devuelven
-// datos de mentira por ahora. Están todas marcadas con "MOCK" y el `request`
-// real queda comentado al lado: conectar cada una es borrar una línea y
-// descomentar la otra.
-
-import {
-  addMockStudentLesson,
-  getMockAvailabilitySlots,
-  getMockStudentLessons,
-  getMockClasses,
-  MOCK_TEACHERS,
-  mockResponse,
-} from './mocks.js'
+// Todo pega contra el backend de verdad: ya no quedan datos de mentira.
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
@@ -112,21 +99,15 @@ export function fetchCurrentUser() {
   return request('/api/auth/me')
 }
 
+/**
+ * Las clases del usuario logueado en ese rango: como docente las que da, como
+ * alumno las que reservó. El backend filtra por la sesión, así que no hace
+ * falta mandar quién es.
+ */
 export function fetchClasses({ from, to, status }) {
-  // MOCK: las clases del rango que muestra la grilla del calendario.
-  // `status` es opcional y lo va a filtrar el backend (ver el query de
-  // abajo): 'reservada' para el calendario, 'disponible' para la pantalla de
-  // disponibilidad.
-  return mockResponse(getMockClasses(from, to, status))
-  // return request(
-  //   `/api/classes?from=${from}&to=${to}${status ? `&status=${status}` : ''}`,
-  // )
-}
-
-export function fetchTeachers() {
-  // MOCK: lo va a usar el buscador cuando exista.
-  return mockResponse(MOCK_TEACHERS)
-  // return request('/api/teachers')
+  return request(
+    `/api/classes?from=${from}&to=${to}${status ? `&status=${status}` : ''}`,
+  )
 }
 
 /**
@@ -140,35 +121,39 @@ export function fetchAvailabilityByTeacher(teacherId) {
   return request(`/api/teachers/${teacherId}/availability`)
 }
 
+/**
+ * La disponibilidad YA con fecha y YA neta de lo reservado: una fila por
+ * (docente, materia, fecha). La pantalla del alumno nunca ve una plantilla
+ * semanal — el backend proyecta la semana sobre el rango pedido.
+ */
 export function fetchAvailability({ from, to }) {
-  // MOCK: la disponibilidad YA con fecha y YA neta de lo reservado. El mock
-  // hace acá el trabajo que va a hacer el backend: guarda plantillas semanales
-  // y las proyecta sobre el rango que pide la pantalla (ver expandAvailability
-  // en utils/booking.js). La pantalla del alumno nunca ve una plantilla
-  // semanal, igual que no la va a ver cuando esto sea HTTP.
-  return mockResponse(getMockAvailabilitySlots(from, to))
-  // return request(`/api/availability?from=${from}&to=${to}`)
+  return request(`/api/availability?from=${from}&to=${to}`)
 }
 
+/**
+ * Las clases que ya reservó el alumno logueado, para pintar en gris los
+ * horarios que le chocan. Es el mismo endpoint que fetchClasses: el backend
+ * ya filtra por la sesión.
+ */
 export function fetchMyLessons({ from, to }) {
-  // MOCK: las clases que YA reservó el alumno logueado. No sale de
-  // fetchClasses porque ese es un listado global sin dueño: `studentName` es
-  // texto de pantalla y todavía no hay studentId (ver mocks.js).
-  return mockResponse(getMockStudentLessons(from, to))
-  // return request(
-  //   `/api/classes?from=${from}&to=${to}&status=reservada&student=me`,
-  // )
+  return request(`/api/classes?from=${from}&to=${to}&status=reservada`)
 }
 
+/**
+ * Reservar. El alumno sale de la sesión y la hora de fin la calcula el
+ * backend (la clase dura siempre 1 h), así que alcanza con fecha, docente,
+ * materia y hora de inicio. Devuelve la clase guardada, sin envolver.
+ */
 export function bookLesson(lesson) {
-  // MOCK: empuja la clase a las del alumno en mocks.js. Como la
-  // disponibilidad se calcula restando esas clases, el horario deja de
-  // ofrecerse solo en la próxima carga, sin tener que tocar nada más.
-  return mockResponse({ lesson: addMockStudentLesson(lesson) })
-  // return request('/api/classes', {
-  //   method: 'POST',
-  //   body: JSON.stringify(lesson),
-  // })
+  return request('/api/classes', {
+    method: 'POST',
+    body: JSON.stringify({
+      date: lesson.date,
+      teacherId: lesson.teacherId,
+      subjectId: lesson.subjectId,
+      startTime: lesson.startTime,
+    }),
+  })
 }
 
 /**

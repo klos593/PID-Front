@@ -7,24 +7,16 @@ import LoginPage from './pages/Login/LoginPage.jsx'
 import ProfilePage from './pages/Profile/ProfilePage.jsx'
 import RegisterPage from './pages/Register/RegisterPage.jsx'
 import SearchResultsPage from './pages/Search/SearchResultsPage.jsx'
-import { MOCK_USER } from './api/mocks.js'
+import { fetchCurrentUser, logoutAccount } from './api/client.js'
 
 /**
- * Punto de montaje de la app, ahora con rutas de verdad (react-router-dom)
- * en lugar del switch de vistas a mano que había antes. La pantalla de
- * entrada es el calendario.
+ * Punto de montaje de la app, con rutas de verdad (react-router-dom). La
+ * pantalla de entrada es el calendario.
  *
- * La sesión es solo `this.state.user`, en memoria: todavía no hay backend de
- * auth y no queremos inventar un token falso, así que refrescar la página la
- * pierde. Las rutas no tienen portero, así que sin usuario igual se llega al
- * calendario (con datos de mentira).
- *
- * ANDAMIO DE PRUEBA — arranca con el usuario de mentira YA logueado (ver
- * MOCK_USER más abajo), para no tener que pasar por el login en cada refresh
- * mientras se arman las pantallas. Se borra junto con el interruptor de rol
- * (ver RoleToggle.jsx) el día que el login sea de verdad: ahí `user` vuelve a
- * arrancar en null y el perfil vuelve a mostrar el cartel de "iniciá sesión".
- * El login sigue funcionando igual si se entra a /ingresar.
+ * La sesión vive en una cookie httpOnly que pone el backend. Al montar se
+ * pregunta por /api/auth/me: si hay sesión, se recupera el usuario y
+ * refrescar no desloguea; si no, `user` queda en null y el perfil muestra el
+ * cartel de "iniciá sesión".
  *
  * Todas las redirecciones se hacen con <Navigate> y todos los links con
  * <Link>/<NavLink>: son componentes comunes, no hooks, así que esto sigue
@@ -32,14 +24,26 @@ import { MOCK_USER } from './api/mocks.js'
  */
 class App extends Component {
   state = {
-    // ANDAMIO DE PRUEBA: acá va null cuando el login sea de verdad.
-    user: MOCK_USER,
+    user: null,
     justRegisteredName: null,
     // Desde qué rol se está mirando la app. ANDAMIO DE PRUEBA: el botón de la
     // barra (RoleToggle) NO va a producción. Arranca en el rol del usuario que
     // se loguea; el día que se borre el botón, esto se reemplaza por user.role
     // y sale del estado.
-    viewRole: MOCK_USER.role,
+    viewRole: 'student',
+  }
+
+  /**
+   * Recupera la sesión al abrir la app. Un 401 es lo normal cuando no hay
+   * nadie logueado, así que no se muestra ningún error: simplemente se queda
+   * sin usuario.
+   */
+  componentDidMount() {
+    fetchCurrentUser()
+      .then((user) => {
+        this.setState({ user, viewRole: user?.role === 'teacher' ? 'teacher' : 'student' })
+      })
+      .catch(() => {})
   }
 
   handleLoginSuccess = (user) => {
@@ -70,14 +74,14 @@ class App extends Component {
   }
 
   /**
-   * Cerrar sesión: se olvida del usuario. La navegación al login la hace el
-   * <Link> del perfil, así que acá solo se limpia el estado.
+   * Cerrar sesión: se borra la cookie en el backend y se olvida el usuario
+   * acá. El estado se limpia igual aunque el pedido falle — si no, la app
+   * seguiría mostrando a alguien logueado que ya se quiso ir.
    *
-   * OJO, mientras esté el andamio de prueba: refrescar vuelve a arrancar con
-   * MOCK_USER, así que la sesión cerrada no sobrevive un F5. Cuando el login
-   * sea de verdad eso se arregla solo.
+   * La navegación al login la hace el <Link> del perfil.
    */
   handleLogout = () => {
+    logoutAccount().catch(() => {})
     this.setState({ user: null, viewRole: 'student', justRegisteredName: null })
   }
 

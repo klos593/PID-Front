@@ -44,18 +44,15 @@ A web app (responsive — must work well on phone too) that connects students an
 | `/disponibilidad` | student | Booking board: filters (day / subject / hour range / search box), month calendar with a green count per day, cards per teacher+subject+day, and a modal with a one-line Gantt hour picker to book. |
 | `/disponibilidad/:materiaId` | both | Same screens, with that subject preselected. |
 
-## The API the frontend is waiting for
+## The API the frontend talks to
 
-**Where to plug in.** Every call lives in `src/api/client.js`. Each function that isn't wired yet returns fake data and has the real call **commented right underneath**:
+**Where to plug in.** Every call lives in `src/api/client.js`, and every one of them hits the real backend — there are no mocks left (`src/api/mocks.js` is gone). All of them go through `request()`, which handles the `/api` prefix, cookies (`credentials: 'include'`) and the CSRF header, so a new endpoint is one small function:
 
 ```js
 export function fetchSubjects() {
-  return mockResponse(MOCK_SUBJECTS)   // ← delete this line
-  // return request('/api/subjects')   // ← uncomment this one
+  return request('/api/subjects')
 }
 ```
-
-So connecting an endpoint is a two-line change, one function at a time — the screens don't change at all. When every function is wired, `src/api/mocks.js` gets deleted whole. Nothing else in the app imports it.
 
 **Formats used everywhere** (the whole frontend already speaks these, so please match them):
 
@@ -63,7 +60,7 @@ So connecting an endpoint is a two-line change, one function at a time — the s
 - Times: `"HH:MM"`, 24 h, always `:00` or `:30`.
 - A range is `{ "start": "13:00", "end": "15:30" }` and **`end` is exclusive**. A range that ends at midnight is written `"24:00"`, never `"00:00"` — otherwise `start < end` breaks for anything that sorts or validates, including the DB.
 - Weekday keys are ASCII, lowercase, **no accents**: `lunes martes miercoles jueves viernes sabado domingo`. The week starts on **Monday**. These are JSON keys and DB values, not display text.
-- **IDs are opaque strings** — the backend generates UUIDs (`gen_random_uuid()`), e.g. `"47ac9e88-4099-4ab4-b1fe-3898d7b279c4"`. Never coerce one with `Number()` (that yields `NaN`) and never assume it sorts or increments. A route param is always a string, so compare ids with `String(a) === String(b)` rather than `===` — the mocks still use small numeric ids until they're removed, and a `Set`/`includes` lookup silently fails when the two sides differ in type.
+- **IDs are opaque strings** — the backend generates UUIDs (`gen_random_uuid()`), e.g. `"47ac9e88-4099-4ab4-b1fe-3898d7b279c4"`. Never coerce one with `Number()` (that yields `NaN`) and never assume it sorts or increments. A route param is always a string, so compare ids with `String(a) === String(b)` rather than `===`: a `Set`/`includes` lookup silently fails when the two sides differ in type.
 
 **Errors.** `request()` in `client.js` reads a failed response as JSON and expects:
 
@@ -131,9 +128,9 @@ Days with no hours are simply absent. The teacher comes from the session. Reject
 
 **9. `PATCH /api/users/me`** → **already wired**. Body `{ "telefono": "...", "subjectIds": ["<uuid>", ...] }`, responds with the updated user, unwrapped, same shape as login. `subjectIds` replaces the teacher's whole list (not a diff) and is ignored for students. The user id comes from the session, never the body.
 
-**10. Already wired, not mocked:** `POST /api/auth/register` (body `{ email, password, nombre, apellido, telefono, role, subjectIds }`) and `GET /api/auth/check-email?email=` (expected `{ "available": true }` — exported but no screen uses it yet).
+**10.** `POST /api/auth/register` (body `{ email, password, nombre, apellido, telefono, role, subjectIds }`) and `GET /api/auth/check-email?email=` (expected `{ "available": true }` — exported but no screen uses it yet).
 
-`GET /api/teachers` also exists in `client.js` for a future search screen.
+There is **no teacher-listing endpoint** (`GET /api/teachers`) yet: the search screen that would need it doesn't exist either, so `/buscar` is a placeholder. The only route under `/api/teachers` is `:teacherId/availability` (point 8).
 
 ### The one design decision to understand: weekly template → dated availability
 
@@ -144,7 +141,7 @@ Two different meanings of "booked", and only one of them is subtracted:
 - Booked **with that teacher** → that hour no longer exists for anyone. **Subtract it** from the ranges, matching by (teacher, date) and **ignoring the subject** — nobody teaches two subjects at once. A row left with no ranges is dropped from the response.
 - Booked by **this student with someone else** → the teacher's hour still exists, this student just can't take it. **Do not subtract it**; the frontend gets it from `/api/classes?student=me` and greys it out.
 
-The frontend never sees a weekly template on that screen, on purpose — that's what `src/utils/booking.js` does today against the mocks, and it's the piece that disappears into the backend. Reading `expandAvailability` and `subtractBookedLessons` in that file gives you the algorithm; `src/utils/booking.test.js` is a spec you can steal, including the edge case that **ranges touching at the edges don't overlap** (14:00–15:00 and 15:00–16:00 coexist fine).
+The frontend never sees a weekly template on that screen, on purpose. That expansion now lives in the backend (`PID-Back/src/lib/availabilityExpansion.js`, ported from `src/utils/booking.js`). The frontend copy stays for the pieces the UI still needs on its own — `startOptions`, `formatClashes`, `rangesOverlap`, `dayKeyFromIso` — and **both** test suites cover the edge case that **ranges touching at the edges don't overlap** (14:00–15:00 and 15:00–16:00 coexist fine).
 
 ### Rules the backend must enforce (the UI already does, but the UI can be bypassed)
 
@@ -154,11 +151,16 @@ The frontend never sees a weekly template on that screen, on purpose — that's 
 4. A student can't have two classes that overlap **even by a minute**.
 5. An availability block shorter than 1 hour is invalid — a class wouldn't fit in it.
 
-### Known gaps on the frontend side (not your problem, but they explain what you'll see)
+### Gaps that are now closed (they used to be scaffolding — don't re-add the workarounds)
 
-- **There's no `studentId` anywhere yet.** `studentName` is display text. Once classes have a real owner, `/api/classes?student=me` replaces the `mockStudentLessons` list and the `TODO(alumno)` in `mocks.js` goes away.
-- The logged-in teacher currently appears as a bookable teacher **to himself** — deliberate scaffolding so the flow can be demoed end to end with no backend. The real API should exclude self.
-- Hours already past on today's date are still offered.
+- **Classes have a real owner.** `classes.student_id` is a column; `GET /api/classes` scopes by the session's user and role, so a student's own lessons need no query param.
+- **A teacher is no longer offered to himself.** `GET /api/availability` filters out rows whose `teacherId` is the caller, and `POST /api/classes` rejects self-booking with a 400.
+- **Hours already past are not offered.** The expansion takes `nowIso`/`nowTime` and drops them; `POST /api/classes` re-checks server-side.
+
+### Still open
+
+- No teacher-search endpoint or screen — `/buscar` is a placeholder.
+- The role switch in the navbar (`RoleToggle`) is demo scaffolding and must not ship.
 
 ## Color palette — light/dark, blue-based
 CSS variables. Both modes use the *same blue hue* at different lightness/saturation steps, so toggling themes doesn't feel like a different app.
@@ -192,7 +194,7 @@ Notes:
 ## Frontend conventions (for whoever touches this repo)
 - **Class components everywhere.** No hooks: the only file allowed to use them is `src/routes/withRouter.jsx`, the bridge that injects React Router's data as a `router` prop. Function components are only used for the SVGs in `components/icons.jsx`. State goes in class properties, handlers are arrow properties, per-item handlers are curried (`handleX = (id) => () => {}`), defaults go in `X.defaultProps`.
 - **Style**: no semicolons, single quotes, 2-space indent, ~100 columns. UI copy in rioplatense Spanish (voseo: "Elegí", "tenés"). Comments in Spanish, and they explain **why**, not what. Don't run a formatter over a file — there's no prettier config in the repo and it will fight the house style.
-- **Layout**: `pages/<Screen>/` for screens (component + its CSS + its tests colocated), `components/` for anything shared, `utils/` for pure logic with no React (`calendar.js` dates, `availability.js` the weekly grid, `booking.js` the bridge between the two), `api/` for the client and the mocks.
+- **Layout**: `pages/<Screen>/` for screens (component + its CSS + its tests colocated), `components/` for anything shared, `utils/` for pure logic with no React (`calendar.js` dates, `availability.js` the weekly grid, `booking.js` the bridge between the two), `api/` for the client.
 - **CSS**: plain global files, design tokens only (never a raw hex), state classes named `is-*`, and both themes covered. Breakpoints are desktop-first `max-width` at 900 / 600 / 480px.
 - **Stale responses** are handled with a monotonic counter (`fetchToken`) compared in the `.then()`, not AbortController — changing month quickly must not let an older response land last.
 
