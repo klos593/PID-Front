@@ -20,7 +20,7 @@ import { StudentIcon, TeacherIcon } from './icons.jsx'
 class RoleToggle extends Component {
   render() {
     const { role, onToggle } = this.props
-    const esDocente = role === 'docente'
+    const esDocente = role === 'teacher'
 
     return (
       <button

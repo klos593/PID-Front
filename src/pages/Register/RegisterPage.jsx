@@ -84,7 +84,7 @@ class RegisterPage extends Component {
   handleRoleNext = () => {
     // Students don't pick subjects at signup (that's a search/browse-time
     // concept, not a profile field) — only teachers see the subjects step.
-    if (this.state.role === 'alumno') {
+    if (this.state.role === 'student') {
       this.handleFinalSubmit()
       return
     }

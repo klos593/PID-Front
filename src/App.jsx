@@ -46,7 +46,7 @@ class App extends Component {
     this.setState({
       user,
       justRegisteredName: null,
-      viewRole: user?.role === 'docente' ? 'docente' : 'alumno',
+      viewRole: user?.role === 'teacher' ? 'teacher' : 'student',
     })
   }
 
@@ -56,7 +56,7 @@ class App extends Component {
 
   // Andamio de prueba — ver RoleToggle.jsx.
   handleToggleRole = () => {
-    this.setState((prev) => ({ viewRole: prev.viewRole === 'docente' ? 'alumno' : 'docente' }))
+    this.setState((prev) => ({ viewRole: prev.viewRole === 'teacher' ? 'student' : 'teacher' }))
   }
 
   /**
@@ -78,7 +78,7 @@ class App extends Component {
    * sea de verdad eso se arregla solo.
    */
   handleLogout = () => {
-    this.setState({ user: null, viewRole: 'alumno', justRegisteredName: null })
+    this.setState({ user: null, viewRole: 'student', justRegisteredName: null })
   }
 
   render() {

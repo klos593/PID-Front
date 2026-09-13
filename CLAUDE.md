@@ -11,7 +11,7 @@ Shared context for Claude Code across the team. This file lives at the root of *
 
 ## App concept
 A web app (responsive — must work well on phone too) that connects students and teachers.
-- **Single account type**: role is chosen at signup, not separate signup flows. On the wire the role is Spanish: **`"docente"` or `"alumno"`** (that's what the register form sends and what the frontend switches on — don't send `teacher`/`student`).
+- **Single account type**: role is chosen at signup, not separate signup flows. On the wire the role is **`"teacher"` or `"student"`** — English, matching the backend and the `user_role` enum. That's what the register form sends and what the code switches on (`viewRole`, `user.role`); the Spanish words the user reads ("Docente", "Alumno", "mirando el perfil como docente") are **display text only**, produced at the point of render. Never compare against `'docente'`/`'alumno'`.
 - **Teachers**: pick which subjects they teach from a fixed list of available subjects, and set their availability. Availability ended up being a **weekly template per subject** ("Mondays 13:00–15:30"), not a list of specific dates — it's what a teacher actually has to fill in once instead of every week. The dates come out of it, see "weekly template → dated availability" below. Classes are always **1 hour long**, and can only start on the hour or half-hour (`:00` or `:30`).
 - **Students**: search/browse teachers, view their profile and subjects, see which teachers are available and their open class slots.
 - **Booking**: a student picking a slot **reserves it** — it disappears from availability for other students once booked.
@@ -79,11 +79,11 @@ So connecting an endpoint is a two-line change, one function at a time — the s
 ```jsonc
 // request
 { "email": "a@b.com", "password": "..." }
-// response
-{ "user": { "id": 1, "nombre": "Agustín", "apellido": "Klos", "email": "a@b.com",
-            "role": "docente", "telefono": "+54 11 5555-5555", "subjectIds": [1, 3, 5] } }
+// response — the user object itself, NOT wrapped in { user: ... }
+{ "id": 1, "nombre": "Agustín", "apellido": "Klos", "email": "a@b.com",
+  "role": "teacher", "telefono": "+54 11 5555-5555", "subjectIds": [1, 3, 5] }
 ```
-The frontend keeps `user` in memory only (it's lost on refresh — there's no session yet). When you add cookies/JWT, say so and we'll add the header or `credentials: 'include'` in `request()`.
+Already wired to the real backend, along with `/api/auth/logout` and `/api/auth/me`. The backend sets an `httpOnly` session cookie, so `request()` still needs `credentials: 'include'` for it to be sent on later calls — see "Known gaps" below. The frontend keeps `user` in memory only, so a refresh still loses it until `fetchCurrentUser()` is called on mount.
 
 **2. `GET /api/subjects`** → `[{ "id": 1, "name": "Matemática" }, ...]`. Fixed catalogue. Signup step 3 and every subject filter depend on it.
 
@@ -155,6 +155,7 @@ The frontend never sees a weekly template on that screen, on purpose — that's 
 
 ### Known gaps on the frontend side (not your problem, but they explain what you'll see)
 
+- **`request()` doesn't send the session cookie.** The backend sets an `httpOnly`, `sameSite: 'lax'` `sid` cookie on login, but `fetch` omits cookies unless you pass `credentials: 'include'`, which `api/client.js` doesn't. Same-origin through the Vite proxy can mask this in dev and then fail behind Caddy. Fixing it is one option on the `fetch` call.
 - **There's no `studentId` anywhere yet.** `studentName` is display text. Once classes have a real owner, `/api/classes?student=me` replaces the `mockStudentLessons` list and the `TODO(alumno)` in `mocks.js` goes away.
 - The logged-in teacher currently appears as a bookable teacher **to himself** — deliberate scaffolding so the flow can be demoed end to end with no backend. The real API should exclude self.
 - Hours already past on today's date are still offered.

@@ -22,14 +22,14 @@ const user = {
   apellido: 'Klos',
   email: 'agustin@example.com',
   telefono: '+54 11 5555-5555',
-  role: 'docente',
+  role: 'teacher',
   subjectIds: [1, 3],
 }
 
 function renderProfile(props) {
   return render(
     <MemoryRouter>
-      <ProfilePage user={user} viewRole="alumno" {...props} />
+      <ProfilePage user={user} viewRole="student" {...props} />
     </MemoryRouter>,
   )
 }
@@ -83,30 +83,30 @@ describe('ProfilePage', () => {
   it('muestra el rol que se está mirando', async () => {
     // Hay que desmontar entre render y render: cleanup() corre en afterEach,
     // así que si no, quedan las dos pantallas montadas a la vez.
-    const docente = renderProfile({ viewRole: 'docente' })
+    const docente = renderProfile({ viewRole: 'teacher' })
     await esperarMaterias()
     expect(screen.getByText('Docente')).toBeInTheDocument()
     docente.unmount()
 
-    renderProfile({ viewRole: 'alumno' })
+    renderProfile({ viewRole: 'student' })
     await esperarMaterias()
     expect(screen.getAllByText('Alumno').length).toBeGreaterThan(0)
   })
 
   it('solo el docente ve la sección de materias', async () => {
-    const docente = renderProfile({ viewRole: 'docente' })
+    const docente = renderProfile({ viewRole: 'teacher' })
     expect(await screen.findByText('Materias que das')).toBeInTheDocument()
     await esperarMaterias()
     docente.unmount()
 
-    renderProfile({ viewRole: 'alumno' })
+    renderProfile({ viewRole: 'student' })
     await esperarMaterias()
     expect(screen.queryByText('Materias que das')).not.toBeInTheDocument()
     expect(screen.queryByText('Materias que te interesan')).not.toBeInTheDocument()
   })
 
   it('lista las materias que da y ofrece el resto para agregar', async () => {
-    renderProfile({ viewRole: 'docente' })
+    renderProfile({ viewRole: 'teacher' })
     await screen.findByText('Matemática')
 
     expect(screen.getByLabelText('Dejar de dar Matemática')).toBeInTheDocument()
@@ -119,12 +119,12 @@ describe('ProfilePage', () => {
   })
 
   it('avisa cuando el docente no eligió materias', async () => {
-    renderProfile({ viewRole: 'docente', user: { ...user, subjectIds: [] } })
+    renderProfile({ viewRole: 'teacher', user: { ...user, subjectIds: [] } })
     expect(await screen.findByText('Todavía no elegiste materias.')).toBeInTheDocument()
   })
 
   it('como alumno no hay sección de materias', async () => {
-    renderProfile({ viewRole: 'alumno' })
+    renderProfile({ viewRole: 'student' })
     await esperarMaterias()
 
     expect(screen.queryByText('Matemática')).not.toBeInTheDocument()
@@ -140,7 +140,7 @@ describe('ProfilePage', () => {
     // la carga que nos ahorramos al montar hay que dispararla acá.
     const { rerender } = render(
       <MemoryRouter>
-        <ProfilePage user={user} viewRole="alumno" />
+        <ProfilePage user={user} viewRole="student" />
       </MemoryRouter>,
     )
     await esperarMaterias()
@@ -148,14 +148,14 @@ describe('ProfilePage', () => {
 
     rerender(
       <MemoryRouter>
-        <ProfilePage user={user} viewRole="docente" />
+        <ProfilePage user={user} viewRole="teacher" />
       </MemoryRouter>,
     )
     expect(await screen.findByLabelText('Dejar de dar Matemática')).toBeInTheDocument()
   })
 
   it('como docente cada materia linkea a su disponibilidad', async () => {
-    renderProfile({ viewRole: 'docente' })
+    renderProfile({ viewRole: 'teacher' })
     await screen.findByText('Matemática')
 
     // El nombre accesible incluye la materia: con solo "Disponibilidad" no
@@ -171,7 +171,7 @@ describe('ProfilePage', () => {
   })
 
   it('como docente se agregan y se quitan materias', async () => {
-    renderProfile({ viewRole: 'docente' })
+    renderProfile({ viewRole: 'teacher' })
     await screen.findByText('Matemática')
 
     // Física no la da: aparece solo como candidata a agregar.
@@ -217,7 +217,7 @@ describe('ProfilePage', () => {
 
   it('guarda teléfono y materias en una sola llamada', async () => {
     const onUserChange = vi.fn()
-    renderProfile({ viewRole: 'docente', onUserChange })
+    renderProfile({ viewRole: 'teacher', onUserChange })
     await screen.findByText('Matemática')
 
     await userEvent.clear(telefonoInput())
@@ -254,19 +254,19 @@ describe('ProfilePage', () => {
 
   it('avisa si falla la carga de materias', async () => {
     fetchSubjects.mockRejectedValue(new Error('No hay materias.'))
-    renderProfile({ viewRole: 'docente' })
+    renderProfile({ viewRole: 'teacher' })
     expect(await screen.findByRole('alert')).toHaveTextContent('No hay materias.')
   })
 
   it('avisa cuando el rol que se mira no es el de la cuenta', async () => {
     // El interruptor de rol es un andamio: sin este aviso parecería un error
     // de datos.
-    const desalineado = renderProfile({ user: { ...user, role: 'alumno' }, viewRole: 'docente' })
+    const desalineado = renderProfile({ user: { ...user, role: 'student' }, viewRole: 'teacher' })
     await esperarMaterias()
     expect(screen.getByText(/pero tu cuenta es de alumno/)).toBeInTheDocument()
     desalineado.unmount()
 
-    renderProfile({ user: { ...user, role: 'docente' }, viewRole: 'docente' })
+    renderProfile({ user: { ...user, role: 'teacher' }, viewRole: 'teacher' })
     await esperarMaterias()
     expect(screen.queryByText(/pero tu cuenta/)).not.toBeInTheDocument()
   })
@@ -284,7 +284,7 @@ describe('ProfilePage', () => {
   })
 
   it('el docente también puede cerrar sesión', async () => {
-    renderProfile({ viewRole: 'docente' })
+    renderProfile({ viewRole: 'teacher' })
     await esperarMaterias()
     expect(screen.getByRole('link', { name: 'Cerrar sesión' })).toBeInTheDocument()
   })

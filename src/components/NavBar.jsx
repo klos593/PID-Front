@@ -51,7 +51,7 @@ class NavBar extends Component {
 }
 
 NavBar.defaultProps = {
-  viewRole: 'alumno',
+  viewRole: 'student',
 }
 
 export default NavBar

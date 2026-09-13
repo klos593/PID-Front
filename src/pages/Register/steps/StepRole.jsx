@@ -19,15 +19,15 @@ class StepRole extends Component {
           icon={<TeacherIcon />}
           title="Docente"
           subtitle="Vas a dar materias"
-          selected={value === 'docente'}
-          onClick={() => onSelect('docente')}
+          selected={value === 'teacher'}
+          onClick={() => onSelect('teacher')}
         />
         <RoleCard
           icon={<StudentIcon />}
           title="Alumno"
           subtitle="Te interesan materias"
-          selected={value === 'alumno'}
-          onClick={() => onSelect('alumno')}
+          selected={value === 'student'}
+          onClick={() => onSelect('student')}
         />
         <div className="btn-row">
           <button type="button" className="btn btn-ghost" onClick={onBack}>

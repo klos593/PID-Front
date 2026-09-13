@@ -69,7 +69,7 @@ describe('CalendarPage', () => {
       classOn(iso, { teacherName: 'Laura Gómez', studentName: 'Sofía Ramírez' }),
     ])
 
-    render(<CalendarPage viewRole="alumno" />)
+    render(<CalendarPage viewRole="student" />)
 
     expect(await screen.findByText(/Laura Gómez/)).toBeInTheDocument()
     expect(screen.queryByText(/Sofía Ramírez/)).not.toBeInTheDocument()
@@ -81,7 +81,7 @@ describe('CalendarPage', () => {
       classOn(iso, { teacherName: 'Laura Gómez', studentName: 'Sofía Ramírez' }),
     ])
 
-    render(<CalendarPage viewRole="docente" />)
+    render(<CalendarPage viewRole="teacher" />)
 
     expect(await screen.findByText(/Sofía Ramírez/)).toBeInTheDocument()
     expect(screen.queryByText(/Laura Gómez/)).not.toBeInTheDocument()
@@ -111,7 +111,7 @@ describe('CalendarPage', () => {
     const iso = toISODate(today)
     fetchClasses.mockResolvedValue([classOn(iso, { studentName: null })])
 
-    render(<CalendarPage viewRole="docente" />)
+    render(<CalendarPage viewRole="teacher" />)
 
     expect(await screen.findByText(/Sin reservar/)).toBeInTheDocument()
   })

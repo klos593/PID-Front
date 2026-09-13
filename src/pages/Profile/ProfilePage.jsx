@@ -25,9 +25,9 @@ import './ProfilePage.css'
  *
  * El rol sale de `viewRole` (el interruptor de la barra) y NO de `user.role`:
  * antes salía de user.role y quedaba incoherente con el calendario, que
- * siempre miró viewRole. Puede pasar que viewRole diga "docente" y la cuenta
- * sea de alumno — es esperable, el interruptor es un andamio de prueba, y en
- * ese caso se avisa con una línea abajo del nombre.
+ * siempre miró viewRole. Puede pasar que viewRole sea 'teacher' y la cuenta
+ * tenga role 'student' — es esperable, el interruptor es un andamio de prueba,
+ * y en ese caso se avisa con una línea abajo del nombre.
  *
  * El usuario guardado NO vive acá: esta pantalla se desmonta al navegar, así
  * que el estado se perdería. Al guardar se avisa para arriba con onUserChange
@@ -80,7 +80,7 @@ class ProfilePage extends Component {
   }
 
   esDocente() {
-    return this.props.viewRole === 'docente'
+    return this.props.viewRole === 'teacher'
   }
 
   /** El rol que se está mirando no es el de la cuenta (culpa del andamio). */
@@ -306,7 +306,7 @@ class ProfilePage extends Component {
               {this.rolDesalineado() ? (
                 <p className="profile-role-hint">
                   Estás mirando el perfil como {esDocente ? 'docente' : 'alumno'}, pero tu cuenta
-                  es de {user.role === 'docente' ? 'docente' : 'alumno'}.
+                  es de {user.role === 'teacher' ? 'docente' : 'alumno'}.
                 </p>
               ) : null}
             </div>
@@ -400,7 +400,7 @@ class ProfilePage extends Component {
 }
 
 ProfilePage.defaultProps = {
-  viewRole: 'alumno',
+  viewRole: 'student',
 }
 
 export default ProfilePage

@@ -92,7 +92,7 @@ class AvailabilityPage extends Component {
   }
 
   canEdit() {
-    return Boolean(this.props.user) && this.props.viewRole === 'docente'
+    return Boolean(this.props.user) && this.props.viewRole === 'teacher'
   }
 
   getSubjectId() {
@@ -377,7 +377,7 @@ class AvailabilityPage extends Component {
     // La vista de alumno va PRIMERO y no pide usuario: es informativa y las
     // rutas de la app no tienen portero (ver App.jsx). El login solo hace
     // falta para editar.
-    if (viewRole !== 'docente') return this.renderStudentBooking()
+    if (viewRole !== 'teacher') return this.renderStudentBooking()
 
     if (!user) {
       return (
@@ -422,7 +422,7 @@ class AvailabilityPage extends Component {
     // ocupa todo lo que hay y las tarjetas scrollean adentro); las otras
     // vistas de esta ruta son documentos que crecen para abajo y scrollean en
     // .app-main.
-    const esTablero = this.props.viewRole !== 'docente'
+    const esTablero = this.props.viewRole !== 'teacher'
 
     return (
       <div className={`availability-page ${esTablero ? 'is-board' : ''}`}>{this.renderBody()}</div>
@@ -431,7 +431,7 @@ class AvailabilityPage extends Component {
 }
 
 AvailabilityPage.defaultProps = {
-  viewRole: 'alumno',
+  viewRole: 'student',
 }
 
 export default withRouter(AvailabilityPage)

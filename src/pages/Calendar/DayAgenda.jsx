@@ -20,7 +20,7 @@ import './DayAgenda.css'
 class DayAgenda extends Component {
   /** El nombre de la contraparte, según desde qué rol se esté mirando. */
   getCounterpart(item) {
-    if (this.props.viewRole === 'docente') {
+    if (this.props.viewRole === 'teacher') {
       return {
         label: 'Alumno',
         // Defensivo: acá solo llegan clases reservadas, así que siempre
@@ -80,7 +80,7 @@ class DayAgenda extends Component {
 DayAgenda.defaultProps = {
   classes: [],
   loading: false,
-  viewRole: 'alumno',
+  viewRole: 'student',
 }
 
 export default DayAgenda

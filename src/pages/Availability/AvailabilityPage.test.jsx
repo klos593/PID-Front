@@ -34,8 +34,8 @@ const MATERIAS = [
   { id: 5, name: 'Programación' },
 ]
 
-const docente = { id: 1, nombre: 'Agustín', role: 'docente', subjectIds: [1, 3, 5] }
-const alumno = { id: 7, nombre: 'Sofía', role: 'alumno', subjectIds: [] }
+const docente = { id: 1, nombre: 'Agustín', role: 'teacher', subjectIds: [1, 3, 5] }
+const alumno = { id: 7, nombre: 'Sofía', role: 'student', subjectIds: [] }
 
 function renderAt(path, props) {
   return render(
@@ -68,7 +68,7 @@ describe('AvailabilityPage — vista de alumno', () => {
   }
 
   it('muestra el tablero para reservar, no el placeholder', async () => {
-    renderAt('/disponibilidad', { viewRole: 'alumno', user: alumno })
+    renderAt('/disponibilidad', { viewRole: 'student', user: alumno })
     await esperarTablero()
 
     expect(screen.getByText('Días')).toBeInTheDocument()
@@ -76,7 +76,7 @@ describe('AvailabilityPage — vista de alumno', () => {
   })
 
   it('pide la disponibilidad del rango que muestra la grilla', async () => {
-    renderAt('/disponibilidad', { viewRole: 'alumno', user: alumno })
+    renderAt('/disponibilidad', { viewRole: 'student', user: alumno })
     await esperarTablero()
 
     expect(fetchAvailability).toHaveBeenCalledTimes(1)
@@ -86,7 +86,7 @@ describe('AvailabilityPage — vista de alumno', () => {
 
   it('sin usuario no pide las clases propias', async () => {
     // Las rutas no tienen portero: un alumno deslogueado igual puede mirar.
-    renderAt('/disponibilidad', { viewRole: 'alumno', user: null })
+    renderAt('/disponibilidad', { viewRole: 'student', user: null })
     await esperarTablero()
 
     expect(fetchAvailability).toHaveBeenCalled()
@@ -94,7 +94,7 @@ describe('AvailabilityPage — vista de alumno', () => {
   })
 
   it('la materia de la URL queda elegida', async () => {
-    renderAt('/disponibilidad/1', { viewRole: 'alumno', user: alumno })
+    renderAt('/disponibilidad/1', { viewRole: 'student', user: alumno })
     await esperarTablero()
 
     expect(await screen.findByRole('button', { name: 'Matemática' })).toHaveAttribute(
@@ -105,7 +105,7 @@ describe('AvailabilityPage — vista de alumno', () => {
 
   it('avisa si falla la carga', async () => {
     fetchAvailability.mockRejectedValue(new Error('Se cayó todo.'))
-    renderAt('/disponibilidad', { viewRole: 'alumno', user: alumno })
+    renderAt('/disponibilidad', { viewRole: 'student', user: alumno })
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Se cayó todo.')
   })
@@ -124,7 +124,7 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('sin materia muestra el elegidor, no el placeholder', async () => {
-    renderAt('/disponibilidad', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     expect(await screen.findByText(/Elegí una materia/)).toBeInTheDocument()
@@ -133,7 +133,7 @@ describe('AvailabilityPage — vista de docente', () => {
 
   it('el elegidor lista solo las materias del docente y linkea a cada una', async () => {
     renderAt('/disponibilidad', {
-      viewRole: 'docente',
+      viewRole: 'teacher',
       user: { ...docente, subjectIds: [1, 3] },
     })
     await esperarCarga()
@@ -150,7 +150,7 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('el elegidor dice cuántas horas tiene cargada cada materia', async () => {
-    renderAt('/disponibilidad', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     // Matemática tiene 09:00–11:00 = 2 h; Álgebra no tiene nada.
@@ -159,7 +159,7 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('carga y dibuja el horario guardado de la materia', async () => {
-    renderAt('/disponibilidad/1', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad/1', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     expect(await screen.findByText('Disponibilidad de Matemática')).toBeInTheDocument()
@@ -168,7 +168,7 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('los horarios de OTRAS materias se ven ocupados y dicen de cuál son', async () => {
-    renderAt('/disponibilidad/3', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad/3', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     // Editando Álgebra, lo de Matemática y lo de Programación está ocupado.
@@ -177,7 +177,7 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('los horarios de la materia que se edita NO se ven ocupados', async () => {
-    renderAt('/disponibilidad/1', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad/1', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     expect(screen.getByLabelText('Lunes 09:00, disponible')).toBeInTheDocument()
@@ -185,7 +185,7 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('tiene una flecha para volver al listado de materias', async () => {
-    renderAt('/disponibilidad/1', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad/1', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     expect(screen.getByLabelText('Volver a la lista de materias')).toHaveAttribute(
@@ -195,14 +195,14 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('el elegidor no tiene flecha: ya está en el listado', async () => {
-    renderAt('/disponibilidad', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     expect(screen.queryByLabelText('Volver a la lista de materias')).not.toBeInTheDocument()
   })
 
   it('guardar arranca apagado y se prende al tocar una celda', async () => {
-    renderAt('/disponibilidad/3', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad/3', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     const guardar = screen.getByRole('button', { name: 'Guardar cambios' })
@@ -213,7 +213,7 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('guarda los rangos colapsados', async () => {
-    renderAt('/disponibilidad/3', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad/3', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     await userEvent.click(screen.getByLabelText('Martes 10:00'))
@@ -229,7 +229,7 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('cancelar vuelve a lo cargado', async () => {
-    renderAt('/disponibilidad/1', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad/1', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     await userEvent.click(screen.getByLabelText('Martes 10:00'))
@@ -242,14 +242,14 @@ describe('AvailabilityPage — vista de docente', () => {
 
   it('avisa si falla la carga', async () => {
     fetchAvailabilityByTeacher.mockRejectedValue(new Error('Se cayó todo.'))
-    renderAt('/disponibilidad/1', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad/1', { viewRole: 'teacher', user: docente })
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Se cayó todo.')
   })
 
   it('avisa si falla el guardado', async () => {
     saveAvailability.mockRejectedValue(new Error('No se pudo.'))
-    renderAt('/disponibilidad/1', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad/1', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     // Una hora entera: si no, la validación corta antes de llamar al backend.
@@ -262,7 +262,7 @@ describe('AvailabilityPage — vista de docente', () => {
 
   it('avisa si el docente no da esa materia', async () => {
     renderAt('/disponibilidad/3', {
-      viewRole: 'docente',
+      viewRole: 'teacher',
       user: { ...docente, subjectIds: [1] },
     })
     await esperarCarga()
@@ -282,7 +282,7 @@ describe('AvailabilityPage — vista de docente', () => {
         <Routes>
           <Route
             path="/disponibilidad/:materiaId"
-            element={<AvailabilityPage viewRole="docente" user={docente} />}
+            element={<AvailabilityPage viewRole="teacher" user={docente} />}
           />
         </Routes>
       </MemoryRouter>,
@@ -297,7 +297,7 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('no guarda una media hora suelta y dice cuál es', async () => {
-    renderAt('/disponibilidad/3', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad/3', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     await userEvent.click(screen.getByLabelText('Martes 10:00'))
@@ -310,7 +310,7 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('antes de intentar guardar no marca nada', async () => {
-    renderAt('/disponibilidad/3', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad/3', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     await userEvent.click(screen.getByLabelText('Martes 10:00'))
@@ -320,7 +320,7 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('el aviso se borra solo al completar la hora', async () => {
-    renderAt('/disponibilidad/3', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad/3', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     await userEvent.click(screen.getByLabelText('Martes 10:00'))
@@ -335,7 +335,7 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('1 h 30 se guarda: no tiene que ser múltiplo de la clase', async () => {
-    renderAt('/disponibilidad/3', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad/3', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     await userEvent.click(screen.getByLabelText('Martes 10:00'))
@@ -350,7 +350,7 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('cancelar borra el aviso', async () => {
-    renderAt('/disponibilidad/3', { viewRole: 'docente', user: docente })
+    renderAt('/disponibilidad/3', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
     await userEvent.click(screen.getByLabelText('Martes 10:00'))
@@ -368,7 +368,7 @@ describe('AvailabilityPage — vista de docente', () => {
         <Routes>
           <Route
             path="/disponibilidad/:materiaId"
-            element={<AvailabilityPage viewRole="docente" user={docente} />}
+            element={<AvailabilityPage viewRole="teacher" user={docente} />}
           />
         </Routes>
       </MemoryRouter>,
@@ -385,7 +385,7 @@ describe('AvailabilityPage — vista de docente', () => {
   })
 
   it('sin usuario pide iniciar sesión', () => {
-    renderAt('/disponibilidad/1', { viewRole: 'docente', user: null })
+    renderAt('/disponibilidad/1', { viewRole: 'teacher', user: null })
     expect(screen.getByText('Iniciá sesión para cargar tu disponibilidad.')).toBeInTheDocument()
     expect(fetchAvailabilityByTeacher).not.toHaveBeenCalled()
   })

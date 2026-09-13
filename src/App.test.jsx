@@ -46,7 +46,7 @@ const user = {
   nombre: 'Agustín',
   apellido: 'Klos',
   email: 'agustin@example.com',
-  role: 'docente',
+  role: 'teacher',
   subjectIds: [],
 }
 

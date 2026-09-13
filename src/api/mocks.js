@@ -19,7 +19,7 @@ export const MOCK_USER = {
   nombre: 'Agustín',
   apellido: 'Klos',
   email: 'agustin@example.com',
-  role: 'docente',
+  role: 'teacher',
   telefono: '+54 11 5555-5555',
   subjectIds: [1, 3, 5],
 }

@@ -27,7 +27,7 @@ const MATERIAS = [
   { id: 2, name: 'Física' },
 ]
 
-const alumno = { id: 7, nombre: 'Sofía', role: 'alumno' }
+const alumno = { id: 7, nombre: 'Sofía', role: 'student' }
 
 // Todo se arma sobre HOY, que es el día que la pantalla trae seleccionado.
 const HOY = toISODate(new Date())

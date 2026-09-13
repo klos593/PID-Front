@@ -54,14 +54,14 @@ describe('NavBar', () => {
   })
 
   it('tiene los interruptores de tema y de rol', () => {
-    renderAt('/', { viewRole: 'alumno' })
+    renderAt('/', { viewRole: 'student' })
     expect(screen.getByLabelText(/Cambiar a modo/)).toBeInTheDocument()
     expect(screen.getByLabelText(/Viendo como alumno/)).toBeInTheDocument()
   })
 
   it('avisa desde qué rol se está mirando', async () => {
     const onToggleRole = vi.fn()
-    renderAt('/', { viewRole: 'docente', onToggleRole })
+    renderAt('/', { viewRole: 'teacher', onToggleRole })
 
     const boton = screen.getByLabelText(/Viendo como docente/)
     await userEvent.click(boton)
