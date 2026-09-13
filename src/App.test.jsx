@@ -60,7 +60,7 @@ describe('App', () => {
     fetchClasses.mockReset().mockResolvedValue([])
     fetchSubjects.mockReset().mockResolvedValue([])
     registerAccount.mockReset().mockResolvedValue({ user })
-    updateProfile.mockReset().mockImplementation((payload) => Promise.resolve({ user: payload }))
+    updateProfile.mockReset().mockImplementation((payload) => Promise.resolve(payload))
     fetchAvailabilityByTeacher.mockReset().mockResolvedValue({})
     saveAvailability.mockReset().mockResolvedValue({})
     fetchAvailability.mockReset().mockResolvedValue([])

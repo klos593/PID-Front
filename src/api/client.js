@@ -11,16 +11,20 @@
 
 import {
   addMockStudentLesson,
-  getMockAvailabilityByTeacher,
   getMockAvailabilitySlots,
   getMockStudentLessons,
   getMockClasses,
   MOCK_TEACHERS,
   mockResponse,
-  setMockAvailability,
 } from './mocks.js'
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
+// fetch NO manda cookies salvo que se le pida, y el backend guarda la sesión
+// (`sid`) y el secreto del CSRF en cookies httpOnly. En dev no se nota porque
+// el proxy de Vite hace que todo sea same-origin, pero en producción el front
+// sale por nginx/Caddy y sin esto la sesión se pierde en cada pedido.
+const CREDENTIALS = 'include'
 
 // El backend exige un token CSRF (header x-csrf-token) en cualquier POST de
 // auth. Se pide una sola vez y se cachea en memoria — si expira o el
@@ -31,6 +35,7 @@ function fetchCsrfToken() {
   if (!csrfTokenPromise) {
     csrfTokenPromise = fetch('/api/auth/csrf-token', {
       headers: { 'Content-Type': 'application/json' },
+      credentials: CREDENTIALS,
     })
       .then((res) => res.json())
       .then((data) => data.csrfToken)
@@ -50,13 +55,13 @@ async function request(path, options = {}) {
     headers['x-csrf-token'] = await fetchCsrfToken()
   }
 
-  let response = await fetch(path, { ...options, method, headers })
+  let response = await fetch(path, { ...options, method, headers, credentials: CREDENTIALS })
 
   if (response.status === 403 && !SAFE_METHODS.has(method)) {
     // Token vencido o inválido — se pide uno nuevo y se reintenta una vez.
     csrfTokenPromise = null
     headers['x-csrf-token'] = await fetchCsrfToken()
-    response = await fetch(path, { ...options, method, headers })
+    response = await fetch(path, { ...options, method, headers, credentials: CREDENTIALS })
   }
 
   let data = null
@@ -124,14 +129,15 @@ export function fetchTeachers() {
   // return request('/api/teachers')
 }
 
+/**
+ * Un solo pedido con TODAS las materias de ESE docente, no una por materia.
+ * La pantalla necesita las otras sí o sí —son las que bloquean horarios,
+ * porque nadie puede dar dos clases a la vez— y pedirlas de a una sería un
+ * N+1 con N estados de carga y una carrera entre promesas cada vez que se
+ * cambia de materia.
+ */
 export function fetchAvailabilityByTeacher(teacherId) {
-  // MOCK: un solo pedido con TODAS las materias de ESE docente, no una por
-  // materia. La pantalla necesita las otras sí o sí —son las que bloquean
-  // horarios, porque nadie puede dar dos clases a la vez— y pedirlas de a una
-  // sería un N+1 con N estados de carga y una carrera entre promesas cada vez
-  // que se cambia de materia.
-  return mockResponse(getMockAvailabilityByTeacher(teacherId))
-  // return request(`/api/teachers/${teacherId}/availability`)
+  return request(`/api/teachers/${teacherId}/availability`)
 }
 
 export function fetchAvailability({ from, to }) {
@@ -165,24 +171,28 @@ export function bookLesson(lesson) {
   // })
 }
 
+/**
+ * Reemplaza la semana entera de esa materia: lo que no va en `schedule` se
+ * borra. El docente sale de la sesión en el backend, no se manda.
+ */
 export function saveAvailability(subjectId, schedule) {
-  // MOCK: escribe en el store mutable de mocks.js, así el bloqueo entre
-  // materias se puede probar sin backend (ver el comentario allá).
-  return mockResponse({ subjectId, schedule: setMockAvailability(subjectId, schedule) })
-  // return request(`/api/subjects/${subjectId}/availability`, {
-  //   method: 'PUT',
-  //   body: JSON.stringify({ schedule }),
-  // })
+  return request(`/api/subjects/${subjectId}/availability`, {
+    method: 'PUT',
+    body: JSON.stringify({ schedule }),
+  })
 }
 
+/**
+ * Guarda el perfil. Devuelve el usuario completo y actualizado (no envuelto
+ * en { user }), igual que login y /me. El id sale de la sesión en el backend,
+ * así que mandarlo en el body no cambiaría nada.
+ */
 export function updateProfile(payload) {
-  // MOCK: PATCH /api/users/me todavía no existe. Devolvemos el mismo payload
-  // como si el backend lo hubiera guardado. OJO: no lo mezclamos con
-  // MOCK_USER — pisar el email o el nombre con los de mentira sería un bug
-  // visible (loginAccount ya respeta el email que se tipeó).
-  return mockResponse({ user: { ...payload } })
-  // return request('/api/users/me', {
-  //   method: 'PATCH',
-  //   body: JSON.stringify(payload),
-  // })
+  return request('/api/users/me', {
+    method: 'PATCH',
+    body: JSON.stringify({
+      telefono: payload.telefono,
+      subjectIds: payload.subjectIds,
+    }),
+  })
 }

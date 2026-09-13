@@ -185,18 +185,18 @@ class ProfilePage extends Component {
     }
 
     const payload = {
-      id: this.props.user.id,
       telefono: this.state.telefono.trim(),
       subjectIds: this.state.subjectIds,
     }
 
     this.setState({ saving: true, saveError: null, saved: false })
     updateProfile(payload)
-      .then((result) => {
+      .then((user) => {
         this.setState({ saving: false, saved: true, telefono: payload.telefono })
         // El dueño de `user` es App: sin esto, salir del perfil y volver
-        // mostraría de nuevo el teléfono viejo.
-        this.props.onUserChange?.({ ...this.props.user, ...(result?.user || payload) })
+        // mostraría de nuevo el teléfono viejo. El backend devuelve el usuario
+        // ya actualizado, así que se usa ese y no lo que mandamos.
+        this.props.onUserChange?.({ ...this.props.user, ...(user || payload) })
       })
       .catch((error) => {
         this.setState({

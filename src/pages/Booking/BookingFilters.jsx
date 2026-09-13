@@ -74,7 +74,9 @@ class BookingFilters extends Component {
         </span>
         <div className="booking-filter-chips" role="group" aria-labelledby="filtro-materias">
           {subjects.map((subject) => {
-            const activo = subjectIds.includes(subject.id)
+            // String() de los dos lados: el id puede venir de la URL (siempre
+            // string) o del catálogo, así que no se comparan con ===.
+            const activo = subjectIds.some((id) => String(id) === String(subject.id))
             return (
               <button
                 key={subject.id}

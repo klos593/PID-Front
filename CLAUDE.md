@@ -63,7 +63,7 @@ So connecting an endpoint is a two-line change, one function at a time — the s
 - Times: `"HH:MM"`, 24 h, always `:00` or `:30`.
 - A range is `{ "start": "13:00", "end": "15:30" }` and **`end` is exclusive**. A range that ends at midnight is written `"24:00"`, never `"00:00"` — otherwise `start < end` breaks for anything that sorts or validates, including the DB.
 - Weekday keys are ASCII, lowercase, **no accents**: `lunes martes miercoles jueves viernes sabado domingo`. The week starts on **Monday**. These are JSON keys and DB values, not display text.
-- IDs of subjects and users are numbers.
+- **IDs are opaque strings** — the backend generates UUIDs (`gen_random_uuid()`), e.g. `"47ac9e88-4099-4ab4-b1fe-3898d7b279c4"`. Never coerce one with `Number()` (that yields `NaN`) and never assume it sorts or increments. A route param is always a string, so compare ids with `String(a) === String(b)` rather than `===` — the mocks still use small numeric ids until they're removed, and a `Set`/`includes` lookup silently fails when the two sides differ in type.
 
 **Errors.** `request()` in `client.js` reads a failed response as JSON and expects:
 
@@ -80,12 +80,13 @@ So connecting an endpoint is a two-line change, one function at a time — the s
 // request
 { "email": "a@b.com", "password": "..." }
 // response — the user object itself, NOT wrapped in { user: ... }
-{ "id": 1, "nombre": "Agustín", "apellido": "Klos", "email": "a@b.com",
-  "role": "teacher", "telefono": "+54 11 5555-5555", "subjectIds": [1, 3, 5] }
+{ "id": "3fec16c7-5a52-4c6a-8f41-702f951caad3", "nombre": "Agustín", "apellido": "Klos",
+  "email": "a@b.com", "role": "teacher", "telefono": "+54 11 5555-5555",
+  "subjectIds": ["47ac9e88-4099-4ab4-b1fe-3898d7b279c4"] }
 ```
-Already wired to the real backend, along with `/api/auth/logout` and `/api/auth/me`. The backend sets an `httpOnly` session cookie, so `request()` still needs `credentials: 'include'` for it to be sent on later calls — see "Known gaps" below. The frontend keeps `user` in memory only, so a refresh still loses it until `fetchCurrentUser()` is called on mount.
+Already wired to the real backend, along with `/api/auth/logout` and `/api/auth/me`. The backend sets an `httpOnly` session cookie and `request()` sends it (`credentials: 'include'` on every call, including the CSRF one). The frontend still keeps `user` in memory only, so a refresh loses it until something calls `fetchCurrentUser()` on mount — the session itself survives, it just isn't read back yet.
 
-**2. `GET /api/subjects`** → `[{ "id": 1, "name": "Matemática" }, ...]`. Fixed catalogue. Signup step 3 and every subject filter depend on it.
+**2. `GET /api/subjects`** → `[{ "id": "47ac9e88-4099-4ab4-b1fe-3898d7b279c4", "name": "Matemática" }, ...]`. Fixed catalogue, already wired. Signup step 3 and every subject filter depend on it. The ids in the examples below are still written as small numbers for readability, but the real ones are UUIDs like this.
 
 **3. `GET /api/availability?from=YYYY-MM-DD&to=YYYY-MM-DD`** → the student booking board. **This is the one with real work in it**, see the section below.
 ```jsonc
@@ -128,7 +129,7 @@ Days with no hours are simply absent. The teacher comes from the session. Reject
 
 **8. `GET /api/teachers/:teacherId/availability`** → `{ "1": { "lunes": [...] }, "3": { "martes": [...] } }`, keyed by subject id: **all** the subjects of that teacher in one request. The scheduler needs the other subjects to paint the blocked hours, and one request per subject would be an N+1 with a race every time the teacher switches subject.
 
-**9. `PATCH /api/users/me`** → `{ "telefono": "...", "subjectIds": [1, 3] }`, responds `{ "user": { ...updated... } }`.
+**9. `PATCH /api/users/me`** → **already wired**. Body `{ "telefono": "...", "subjectIds": ["<uuid>", ...] }`, responds with the updated user, unwrapped, same shape as login. `subjectIds` replaces the teacher's whole list (not a diff) and is ignored for students. The user id comes from the session, never the body.
 
 **10. Already wired, not mocked:** `POST /api/auth/register` (body `{ email, password, nombre, apellido, telefono, role, subjectIds }`) and `GET /api/auth/check-email?email=` (expected `{ "available": true }` — exported but no screen uses it yet).
 
@@ -155,7 +156,6 @@ The frontend never sees a weekly template on that screen, on purpose — that's 
 
 ### Known gaps on the frontend side (not your problem, but they explain what you'll see)
 
-- **`request()` doesn't send the session cookie.** The backend sets an `httpOnly`, `sameSite: 'lax'` `sid` cookie on login, but `fetch` omits cookies unless you pass `credentials: 'include'`, which `api/client.js` doesn't. Same-origin through the Vite proxy can mask this in dev and then fail behind Caddy. Fixing it is one option on the `fetch` call.
 - **There's no `studentId` anywhere yet.** `studentName` is display text. Once classes have a real owner, `/api/classes?student=me` replaces the `mockStudentLessons` list and the `TODO(alumno)` in `mocks.js` goes away.
 - The logged-in teacher currently appears as a bookable teacher **to himself** — deliberate scaffolding so the flow can be demoed end to end with no backend. The real API should exclude self.
 - Hours already past on today's date are still offered.

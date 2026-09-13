@@ -229,11 +229,13 @@ class BookingBoard extends Component {
 
   /** Solo las materias que de verdad aparecen en el rango cargado. */
   getFilterSubjects() {
-    const presentes = new Set(this.getCards().map((card) => card.subjectId))
+    // Todo se normaliza a string: el id elegido puede venir de la URL (siempre
+    // string) y el de las tarjetas del backend, y un Set compara con ===.
+    const presentes = new Set(this.getCards().map((card) => String(card.subjectId)))
     // La elegida se agrega igual: si no, un chip seleccionado que se queda sin
     // resultados desaparecería y no habría forma de sacarlo.
-    for (const id of this.state.subjectIds) presentes.add(id)
-    return this.state.subjects.filter((subject) => presentes.has(subject.id))
+    for (const id of this.state.subjectIds) presentes.add(String(id))
+    return this.state.subjects.filter((subject) => presentes.has(String(subject.id)))
   }
 
   handleRangeChange = (from, to) => {
