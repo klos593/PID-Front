@@ -118,11 +118,29 @@ describe('disponibilidad de mentira', () => {
     // otra tiene que mostrar esas horas ocupadas.
     setMockAvailability(99, { martes: [{ start: '08:00', end: '09:00' }] })
     expect(getMockAvailability(99)).toEqual({ martes: [{ start: '08:00', end: '09:00' }] })
-    // setMockAvailability escribe siempre bajo el docente logueado: el PUT de
-    // verdad saca el docente de la sesión.
+    // Sin teacherId, ambas caen en MOCK_USER.id por default — quien llama con
+    // un docente real (login de verdad) tiene que pasar su id explícito.
     expect(getMockAvailabilityByTeacher(MOCK_USER.id)[99]).toEqual({
       martes: [{ start: '08:00', end: '09:00' }],
     })
+  })
+
+  it('con un docente real (id distinto a MOCK_USER) guarda y lee bajo su propio id', () => {
+    // Regresión: App.jsx arranca con MOCK_USER pero lo reemplaza por el
+    // usuario real al loguearse (id de verdad, no el 1 sembrado acá). Si
+    // setMockAvailability ignora ese id y escribe siempre bajo MOCK_USER,
+    // lo que ese docente guarda queda invisible en su propia pantalla.
+    const teacherId = 'd2544e4c-3c71-4b97-ae69-8949b5d81ac7'
+    setMockAvailability(97, { jueves: [{ start: '10:00', end: '11:00' }] }, teacherId)
+
+    expect(getMockAvailability(97, teacherId)).toEqual({
+      jueves: [{ start: '10:00', end: '11:00' }],
+    })
+    expect(getMockAvailabilityByTeacher(teacherId)[97]).toEqual({
+      jueves: [{ start: '10:00', end: '11:00' }],
+    })
+    // No se filtra al casillero de MOCK_USER.
+    expect(getMockAvailabilityByTeacher(MOCK_USER.id)[97]).toBeUndefined()
   })
 
   it('devuelve copias: mutar el resultado no ensucia el store', () => {

@@ -195,6 +195,8 @@ class RegisterPage extends Component {
           onSelect={this.handleRoleSelect}
           onNext={this.handleRoleNext}
           onBack={this.handleBackToAccount}
+          submitting={submitting}
+          error={submitError}
         />
       )
     }
@@ -215,8 +217,11 @@ class RegisterPage extends Component {
   }
 
   render() {
-    const { step, direction, done } = this.state
+    const { step, direction, done, role } = this.state
     const canGoBack = step > STEP_ACCOUNT
+    // Los alumnos no pasan por el paso de materias: el indicador no debe
+    // mostrar un tercer paso que nunca van a ver.
+    const totalSteps = role === 'student' ? 2 : 3
 
     if (done) {
       return <Navigate to="/ingresar" replace />
@@ -228,7 +233,7 @@ class RegisterPage extends Component {
           <AuthHero showBack={canGoBack} onBack={this.handleBack} />
           <div className="auth-card">
             <h1 className="auth-title">Crear cuenta</h1>
-            <ProgressSteps total={3} current={step} />
+            <ProgressSteps total={totalSteps} current={step} />
             <div className="register-step-viewport">
               <AnimatePresence mode="wait" custom={direction} initial={false}>
                 <motion.div

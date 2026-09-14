@@ -165,10 +165,15 @@ export function bookLesson(lesson) {
   // })
 }
 
-export function saveAvailability(subjectId, schedule) {
+export function saveAvailability(subjectId, schedule, teacherId) {
   // MOCK: escribe en el store mutable de mocks.js, así el bloqueo entre
-  // materias se puede probar sin backend (ver el comentario allá).
-  return mockResponse({ subjectId, schedule: setMockAvailability(subjectId, schedule) })
+  // materias se puede probar sin backend (ver el comentario allá). `teacherId`
+  // es solo para el mock (identifica bajo qué docente guardar); el PUT de
+  // verdad lo saca de la sesión, así que se deja de mandar al descomentar.
+  return mockResponse({
+    subjectId,
+    schedule: setMockAvailability(subjectId, schedule, teacherId),
+  })
   // return request(`/api/subjects/${subjectId}/availability`, {
   //   method: 'PUT',
   //   body: JSON.stringify({ schedule }),

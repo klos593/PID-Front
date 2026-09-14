@@ -262,12 +262,14 @@ function cloneSchedule(schedule) {
 }
 
 /**
- * El horario del docente LOGUEADO para una materia. Mantiene la firma de
- * antes: el PUT de verdad saca el docente de la sesión, así que agregarle un
- * teacherId sería modelar un endpoint que no vamos a construir.
+ * El horario del docente logueado para una materia. `teacherId` tiene
+ * default a MOCK_USER.id por compatibilidad con lo sembrado más abajo, pero
+ * quien llama con un docente real (login de verdad, no el andamio) tiene que
+ * pasar su id: si no, esto lee del casillero de MOCK_USER y nunca ve lo que
+ * ese docente guardó (ver setMockAvailability).
  */
-export function getMockAvailability(subjectId) {
-  return cloneSchedule(mockAvailability[MOCK_USER.id]?.[subjectId])
+export function getMockAvailability(subjectId, teacherId = MOCK_USER.id) {
+  return cloneSchedule(mockAvailability[teacherId]?.[subjectId])
 }
 
 /** Todas las materias de UN docente: { [subjectId]: horario }. */
@@ -279,10 +281,10 @@ export function getMockAvailabilityByTeacher(teacherId) {
   return all
 }
 
-export function setMockAvailability(subjectId, schedule) {
-  if (!mockAvailability[MOCK_USER.id]) mockAvailability[MOCK_USER.id] = {}
-  mockAvailability[MOCK_USER.id][subjectId] = cloneSchedule(schedule)
-  return getMockAvailability(subjectId)
+export function setMockAvailability(subjectId, schedule, teacherId = MOCK_USER.id) {
+  if (!mockAvailability[teacherId]) mockAvailability[teacherId] = {}
+  mockAvailability[teacherId][subjectId] = cloneSchedule(schedule)
+  return getMockAvailability(subjectId, teacherId)
 }
 
 /**
