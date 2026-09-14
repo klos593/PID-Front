@@ -226,7 +226,7 @@ class AvailabilityPage extends Component {
     const schedule = slotIdsToRanges(this.state.slotIds)
     this.setState({ saving: true, saveError: null, saved: false })
 
-    saveAvailability(this.getSubjectId(), schedule)
+    saveAvailability(this.getSubjectId(), schedule, this.props.user.id)
       .then(() => {
         this.setState((prev) => ({
           saving: false,
@@ -314,13 +314,12 @@ class AvailabilityPage extends Component {
       <form className="availability-editor" onSubmit={this.handleSubmit}>
         <div className="availability-editor-head">
           <div className="availability-titlebar">
-            {/* Lo mismo que el ícono del reloj de la barra, pero a mano: desde
-                la grilla de una materia, volver al listado es el camino de
-                vuelta natural. */}
+            {/* Se llega acá desde el perfil (elegís la materia ahí), así que
+                volver al perfil es el camino de vuelta natural. */}
             <Link
               className="availability-back"
-              to="/disponibilidad"
-              aria-label="Volver a la lista de materias"
+              to="/perfil"
+              aria-label="Volver al perfil"
             >
               <ChevronLeftIcon />
             </Link>

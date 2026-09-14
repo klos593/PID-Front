@@ -121,6 +121,9 @@ p {
 
 button {
   font-family: var(--sans);
+  background: none;
+  border: none;
+  cursor: pointer;
 }
 
 a {
