@@ -32,7 +32,7 @@ class StepRole extends Component {
         <RoleCard
           icon={<StudentIcon />}
           title="Alumno"
-          subtitle="Te interesan materias"
+          subtitle="Queres tener clases"
           selected={isStudent}
           onClick={() => onSelect('student')}
         />
