@@ -58,11 +58,6 @@ class App extends Component {
     this.setState({ justRegisteredName: nombre })
   }
 
-  // Andamio de prueba — ver RoleToggle.jsx.
-  handleToggleRole = () => {
-    this.setState((prev) => ({ viewRole: prev.viewRole === 'teacher' ? 'student' : 'teacher' }))
-  }
-
   /**
    * App es el dueño de `user`, así que el perfil avisa para acá cuando
    * guarda. Sin esto, salir del perfil lo desmonta y al volver se vería el
@@ -115,7 +110,7 @@ class App extends Component {
 
           {/* Ruta sin path: solo aporta el layout (barra superior) a las de
               adentro, y así el NavBar no se remonta al cambiar de pantalla. */}
-          <Route element={<AppLayout viewRole={viewRole} onToggleRole={this.handleToggleRole} />}>
+          <Route element={<AppLayout viewRole={viewRole} />}>
             <Route path="/" element={<CalendarPage viewRole={viewRole} />} />
             <Route
               path="/perfil"

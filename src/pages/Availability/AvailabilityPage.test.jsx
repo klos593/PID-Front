@@ -184,21 +184,18 @@ describe('AvailabilityPage — vista de docente', () => {
     expect(screen.queryByLabelText(/ocupado por Matemática/)).not.toBeInTheDocument()
   })
 
-  it('tiene una flecha para volver al listado de materias', async () => {
+  it('tiene una flecha para volver al perfil', async () => {
     renderAt('/disponibilidad/1', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
-    expect(screen.getByLabelText('Volver a la lista de materias')).toHaveAttribute(
-      'href',
-      '/disponibilidad',
-    )
+    expect(screen.getByLabelText('Volver al perfil')).toHaveAttribute('href', '/perfil')
   })
 
   it('el elegidor no tiene flecha: ya está en el listado', async () => {
     renderAt('/disponibilidad', { viewRole: 'teacher', user: docente })
     await esperarCarga()
 
-    expect(screen.queryByLabelText('Volver a la lista de materias')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Volver al perfil')).not.toBeInTheDocument()
   })
 
   it('guardar arranca apagado y se prende al tocar una celda', async () => {
@@ -221,9 +218,10 @@ describe('AvailabilityPage — vista de docente', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     await waitFor(() => expect(saveAvailability).toHaveBeenCalledTimes(1))
-    expect(saveAvailability).toHaveBeenCalledWith('3', {
-      martes: [{ start: '10:00', end: '11:00' }],
-    })
+    expect(saveAvailability).toHaveBeenCalledWith(
+      '3',
+      { martes: [{ start: '10:00', end: '11:00' }] },
+    )
     expect(await screen.findByText('Listo, guardamos tus horarios.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeDisabled()
   })
@@ -344,9 +342,10 @@ describe('AvailabilityPage — vista de docente', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     await waitFor(() => expect(saveAvailability).toHaveBeenCalledTimes(1))
-    expect(saveAvailability).toHaveBeenCalledWith('3', {
-      martes: [{ start: '10:00', end: '11:30' }],
-    })
+    expect(saveAvailability).toHaveBeenCalledWith(
+      '3',
+      { martes: [{ start: '10:00', end: '11:30' }] },
+    )
   })
 
   it('cancelar borra el aviso', async () => {
