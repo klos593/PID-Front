@@ -53,7 +53,7 @@ function botonGuardar() {
 describe('ProfilePage', () => {
   beforeEach(() => {
     fetchSubjects.mockReset().mockResolvedValue(MATERIAS)
-    updateProfile.mockReset().mockImplementation((payload) => Promise.resolve({ user: payload }))
+    updateProfile.mockReset().mockImplementation((payload) => Promise.resolve(payload))
   })
 
   it('muestra los datos del usuario', async () => {
@@ -227,7 +227,6 @@ describe('ProfilePage', () => {
 
     await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(1))
     expect(updateProfile).toHaveBeenCalledWith({
-      id: 1,
       telefono: '+54 9 11 1234-5678',
       subjectIds: [1, 3, 2],
     })

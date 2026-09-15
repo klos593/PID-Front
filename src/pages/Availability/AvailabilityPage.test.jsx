@@ -219,9 +219,8 @@ describe('AvailabilityPage — vista de docente', () => {
 
     await waitFor(() => expect(saveAvailability).toHaveBeenCalledTimes(1))
     expect(saveAvailability).toHaveBeenCalledWith(
-      3,
+      '3',
       { martes: [{ start: '10:00', end: '11:00' }] },
-      docente.id,
     )
     expect(await screen.findByText('Listo, guardamos tus horarios.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeDisabled()
@@ -344,9 +343,8 @@ describe('AvailabilityPage — vista de docente', () => {
 
     await waitFor(() => expect(saveAvailability).toHaveBeenCalledTimes(1))
     expect(saveAvailability).toHaveBeenCalledWith(
-      3,
+      '3',
       { martes: [{ start: '10:00', end: '11:30' }] },
-      docente.id,
     )
   })
 

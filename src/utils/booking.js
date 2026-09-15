@@ -300,7 +300,14 @@ export function filterCards(cards, filters = {}) {
 
   return cards.filter((card) => {
     if (dayKeys.length > 0 && !dayKeys.includes(card.dayKey)) return false
-    if (subjectIds.length > 0 && !subjectIds.includes(card.subjectId)) return false
+    // El id de materia se compara como string: puede venir de la URL, y ahí
+    // siempre es string aunque el de la tarjeta no lo sea.
+    if (
+      subjectIds.length > 0 &&
+      !subjectIds.some((id) => String(id) === String(card.subjectId))
+    ) {
+      return false
+    }
     if (docente && !normalizeText(card.teacherName).includes(docente)) return false
 
     if (fromTime || toTime) {

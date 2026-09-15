@@ -95,11 +95,13 @@ class AvailabilityPage extends Component {
     return Boolean(this.props.user) && this.props.viewRole === 'teacher'
   }
 
+  /**
+   * El id de materia se trata como opaco: es el UUID que manda el backend, y
+   * lo único que se hace con él es compararlo y usarlo de clave. Convertirlo
+   * a número lo rompía (Number(uuid) es NaN).
+   */
   getSubjectId() {
-    const { materiaId } = this.props.router.params
-    if (!materiaId) return null
-    const id = Number(materiaId)
-    return Number.isInteger(id) ? id : null
+    return this.props.router.params.materiaId || null
   }
 
   /** Las materias que el docente da, resueltas contra el catálogo. */
@@ -111,12 +113,14 @@ class AvailabilityPage extends Component {
   getSubject() {
     const id = this.getSubjectId()
     if (id === null) return null
-    return this.state.subjects.find((subject) => subject.id === id) || null
+    // String() de los dos lados: el id de la URL siempre es string y el del
+    // catálogo puede no serlo mientras queden mocks con ids numéricos.
+    return this.state.subjects.find((subject) => String(subject.id) === id) || null
   }
 
   teachesSubject() {
     const id = this.getSubjectId()
-    return (this.props.user?.subjectIds || []).includes(id)
+    return (this.props.user?.subjectIds || []).some((mine) => String(mine) === id)
   }
 
   hasChanges() {
@@ -160,9 +164,11 @@ class AvailabilityPage extends Component {
 
         // Los horarios ocupados son la unión de las OTRAS materias.
         const blockedBySlot = {}
+        // Las claves de Object.entries son strings, igual que el id que sale
+        // de la URL, así que se comparan tal cual.
         for (const [otherId, schedule] of Object.entries(bySubject || {})) {
-          if (Number(otherId) === id) continue
-          const subject = lista.find((item) => item.id === Number(otherId))
+          if (otherId === id) continue
+          const subject = lista.find((item) => String(item.id) === otherId)
           const name = subject ? subject.name : 'otra materia'
           for (const slot of rangesToSlotIds(schedule)) {
             // Si dos materias se pisan (no debería, pero el backend todavía no
@@ -226,7 +232,7 @@ class AvailabilityPage extends Component {
     const schedule = slotIdsToRanges(this.state.slotIds)
     this.setState({ saving: true, saveError: null, saved: false })
 
-    saveAvailability(this.getSubjectId(), schedule, this.props.user.id)
+    saveAvailability(this.getSubjectId(), schedule)
       .then(() => {
         this.setState((prev) => ({
           saving: false,

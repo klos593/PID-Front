@@ -17,6 +17,8 @@ const {
   saveAvailability,
   fetchAvailability,
   fetchMyLessons,
+  fetchCurrentUser,
+  logoutAccount,
 } = vi.hoisted(() => ({
   loginAccount: vi.fn(),
   fetchClasses: vi.fn(),
@@ -27,6 +29,8 @@ const {
   saveAvailability: vi.fn(),
   fetchAvailability: vi.fn(),
   fetchMyLessons: vi.fn(),
+  fetchCurrentUser: vi.fn(),
+  logoutAccount: vi.fn(),
 }))
 
 vi.mock('./api/client.js', () => ({
@@ -39,6 +43,8 @@ vi.mock('./api/client.js', () => ({
   saveAvailability,
   fetchAvailability,
   fetchMyLessons,
+  fetchCurrentUser,
+  logoutAccount,
 }))
 
 const user = {
@@ -60,11 +66,15 @@ describe('App', () => {
     fetchClasses.mockReset().mockResolvedValue([])
     fetchSubjects.mockReset().mockResolvedValue([])
     registerAccount.mockReset().mockResolvedValue({ user })
-    updateProfile.mockReset().mockImplementation((payload) => Promise.resolve({ user: payload }))
+    updateProfile.mockReset().mockImplementation((payload) => Promise.resolve(payload))
     fetchAvailabilityByTeacher.mockReset().mockResolvedValue({})
     saveAvailability.mockReset().mockResolvedValue({})
     fetchAvailability.mockReset().mockResolvedValue([])
     fetchMyLessons.mockReset().mockResolvedValue([])
+    // App pregunta por la sesión al montar. Por defecto no hay nadie
+    // logueado; el test que necesita sesión lo pisa.
+    fetchCurrentUser.mockReset().mockRejectedValue(new Error('No autenticado'))
+    logoutAccount.mockReset().mockResolvedValue(undefined)
   })
 
   async function loguearse() {
@@ -108,15 +118,18 @@ describe('App', () => {
     expect(await screen.findByText('Agustín Klos')).toBeInTheDocument()
   })
 
-  it('arranca con el usuario de prueba ya cargado', async () => {
-    // ANDAMIO DE PRUEBA: App arranca con MOCK_USER para no tener que pasar
-    // por el login en cada refresh. Cuando eso se saque, este test cambia por
-    // el de antes (sin usuario, el perfil muestra "Iniciá sesión..."), que
-    // igual sigue cubierto en ProfilePage.test.jsx.
+  it('sin sesión el perfil pide iniciar sesión', async () => {
+    go('/perfil')
+    render(<App />)
+    expect(await screen.findByText('Iniciá sesión para ver tu perfil.')).toBeInTheDocument()
+  })
+
+  it('recupera la sesión al abrir la app (sobrevive un refresh)', async () => {
+    // La cookie la pone el backend; App pregunta por /api/auth/me al montar.
+    fetchCurrentUser.mockResolvedValue(user)
     go('/perfil')
     render(<App />)
     expect(await screen.findByText('Agustín Klos')).toBeInTheDocument()
-    expect(screen.queryByText('Iniciá sesión para ver tu perfil.')).not.toBeInTheDocument()
   })
 
   it('se puede entrar al login aunque ya haya un usuario cargado', async () => {
@@ -166,6 +179,7 @@ describe('App', () => {
   })
 
   it('el ícono de la barra lleva a la disponibilidad sin materia', async () => {
+    fetchCurrentUser.mockResolvedValue(user)
     go('/')
     render(<App />)
     await userEvent.click(screen.getByLabelText('Disponibilidad'))
@@ -173,6 +187,7 @@ describe('App', () => {
   })
 
   it('cerrar sesión lleva al login y se olvida del usuario', async () => {
+    fetchCurrentUser.mockResolvedValue(user)
     go('/perfil')
     render(<App />)
     await screen.findByText('Agustín Klos')
@@ -181,6 +196,8 @@ describe('App', () => {
 
     // Quedamos en el login...
     expect(await screen.findByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
+    // ...y la sesión se cerró también en el backend, no solo acá.
+    expect(logoutAccount).toHaveBeenCalled()
 
     // ...y volviendo al perfil en la MISMA app ya no hay nadie. Se navega con
     // el historial y un popstate porque desde el login no hay barra que tocar.
